@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/11-/'
+    base: '/11-/',
 
     plugins: [react(), tailwindcss()],
 
