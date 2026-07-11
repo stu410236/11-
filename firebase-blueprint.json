@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a C++ Word Farming user account with persisted game progress.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "User password hash or credential token."
+        },
+        "gameState": {
+          "type": "object",
+          "description": "User's current currency, inventory, scores, and streak achievements."
+        },
+        "fields": {
+          "type": "array",
+          "description": "Collection of plots containing information about irrigated status and category metadata."
+        },
+        "tortoise": {
+          "type": "object",
+          "description": "State of the user's pet tortoise including accessories, hydration, and leveling parameters."
+        }
+      },
+      "required": ["username"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts keyed by lowercased username or provider identifier."
+    }
+  }
+}

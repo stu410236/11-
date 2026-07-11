@@ -1,0 +1,6 @@
+{
+  "name": "C++ 語法良田",
+  "description": "點下田地進行 C++ 10題挑戰，必須全部答對才能灌溉良田、收成蔬菜，還有超可愛的 C++ 智慧寵物烏龜可以作伴與特訓！",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
