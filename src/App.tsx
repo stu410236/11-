@@ -1,5 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
+// Web App's Firebase configuration provided by the user
+const firebaseConfig = {
+  apiKey: "AIzaSyD0KdokY4Gwbbz_ZX5lFWVaHGw9SrWzg58",
+  authDomain: "alvin-16896.firebaseapp.com",
+  projectId: "alvin-16896",
+  storageBucket: "alvin-16896.firebasestorage.app",
+  messagingSenderId: "998265430087",
+  appId: "1:998265430087:web:c6e57b95149c6a78a19162",
+  measurementId: "G-SWC44KKJT0"
+};
+
+// Initialize Firebase client-side instance safely
+let appInstance: any = null;
+let auth: any = null;
+try {
+  appInstance = initializeApp(firebaseConfig);
+  auth = getAuth(appInstance);
+} catch (e) {
+  console.error("Firebase client initialization failed:", e);
+}
 import { 
   Sparkles, 
   Droplet, 
@@ -529,45 +552,92 @@ export default function App() {
   // 支援的地圖 tab 分類：'farm' | 'cards' | 'pet' | 'stats' | 'achievements' | 'settings'
   const [currentTab, setCurrentTab] = useState<'farm' | 'cards' | 'pet' | 'stats' | 'achievements' | 'settings'>('farm');
 
-  // === 1. 核心遊戲與資源狀態 ===
+  // === 0.5. 預設初始狀態產生器與帳號 Key 輔助函式 ===
+  const createDefaultGameState = (): GameState => ({
+    score: 0,
+    coins: 10,
+    cabbages: 0,
+    waterBuckets: 0,
+    completedAttempts: {},
+    fieldProgress: {},
+    currentStreak: 0,
+    maxStreak: 0,
+    dailyQuestsDate: new Date().toDateString(),
+    dailyQuestsProgress: {
+      daily_login: { currentValue: 1, isClaimed: false },
+      answer_questions: { currentValue: 0, isClaimed: false },
+      feed_tortoise: { currentValue: 0, isClaimed: false }
+    }
+  });
+
+  const createDefaultFields = (): FieldPlot[] => FIELD_PLOTS_DATA.map(f => ({
+    ...f,
+    isIrrigated: false,
+    bestStreak: 0,
+    lastAttemptDate: null
+  }));
+
+  const createDefaultTortoise = (): TortoisePet => ({
+    name: '小綠龜',
+    level: 1,
+    xp: 0,
+    fullness: 50,
+    hydration: 50,
+    happiness: 50,
+    appearance: 'baby',
+    ownedAccessories: [],
+    equippedAccessories: {},
+  });
+
+  // === 4. 帳號狀態（優先載入） ===
+  const [currentUser, setCurrentUser] = useState<{ username: string; password?: string; userKey?: string } | null>(() => {
+    const local = localStorage.getItem('cpp_farm_currentUser');
+    if (local) {
+      try {
+        return JSON.parse(local);
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  // === 1. 核心遊戲與資源狀態（依據目前帳號區隔） ===
   const [gameState, setGameState] = useState<GameState>(() => {
-    const local = localStorage.getItem('cpp_farm_gameState');
+    const localUserStr = localStorage.getItem('cpp_farm_currentUser');
+    let uKey = 'guest';
+    if (localUserStr) {
+      try {
+        const u = JSON.parse(localUserStr);
+        if (u?.username) uKey = u.username.trim().toLowerCase();
+      } catch (e) {}
+    }
+    const local = localStorage.getItem(`cpp_farm_gameState_${uKey}`);
     if (local) {
       try {
         const parsed = JSON.parse(local);
         return {
-          score: 0,
-          coins: 10,
-          cabbages: 0,
-          waterBuckets: 0,
-          completedAttempts: {},
-          fieldProgress: {},
-          currentStreak: 0,
-          maxStreak: 0,
+          ...createDefaultGameState(),
           ...parsed
         };
       } catch (e) {}
     }
-    return {
-      score: 0,
-      coins: 10,
-      cabbages: 0,
-      waterBuckets: 0,
-      completedAttempts: {},
-      fieldProgress: {},
-      currentStreak: 0,
-      maxStreak: 0
-    };
+    return createDefaultGameState();
   });
 
   // === 2. 田地列表狀態 ===
   const [fields, setFields] = useState<FieldPlot[]>(() => {
-    const local = localStorage.getItem('cpp_farm_fields');
+    const localUserStr = localStorage.getItem('cpp_farm_currentUser');
+    let uKey = 'guest';
+    if (localUserStr) {
+      try {
+        const u = JSON.parse(localUserStr);
+        if (u?.username) uKey = u.username.trim().toLowerCase();
+      } catch (e) {}
+    }
+    const local = localStorage.getItem(`cpp_farm_fields_${uKey}`);
     if (local) {
       try {
         const parsed = JSON.parse(local) as FieldPlot[];
-        // 為了支援多達 80 題，自動從 FIELD_PLOTS_DATA 補足，並更新舊有名稱與描述
-        return FIELD_PLOTS_DATA.map((fresh, idx) => {
+        return FIELD_PLOTS_DATA.map((fresh) => {
           const saved = parsed.find(p => p.id === fresh.id);
           return {
             ...fresh,
@@ -578,33 +648,32 @@ export default function App() {
         });
       } catch (e) {}
     }
-    return FIELD_PLOTS_DATA;
+    return createDefaultFields();
   });
 
   // === 3. 烏龜寵物狀態 ===
   const [tortoise, setTortoise] = useState<TortoisePet>(() => {
-    const local = localStorage.getItem('cpp_farm_tortoise');
+    const localUserStr = localStorage.getItem('cpp_farm_currentUser');
+    let uKey = 'guest';
+    if (localUserStr) {
+      try {
+        const u = JSON.parse(localUserStr);
+        if (u?.username) uKey = u.username.trim().toLowerCase();
+      } catch (e) {}
+    }
+    const local = localStorage.getItem(`cpp_farm_tortoise_${uKey}`);
     if (local) {
       try {
         const parsed = JSON.parse(local);
         return {
+          ...createDefaultTortoise(),
           ...parsed,
           ownedAccessories: parsed.ownedAccessories || [],
           equippedAccessories: parsed.equippedAccessories || {},
         };
       } catch (e) {}
     }
-    return {
-      name: '小綠龜',
-      level: 1,
-      xp: 0,
-      fullness: 50,
-      hydration: 50,
-      happiness: 50,
-      appearance: 'baby',
-      ownedAccessories: [],
-      equippedAccessories: {},
-    };
+    return createDefaultTortoise();
   });
 
   // === 4. UI 輔助狀態 ===
@@ -635,15 +704,6 @@ export default function App() {
   const [mapSearchQuery, setMapSearchQuery] = useState<string>('');
 
   // === 4. 帳號與同步狀態 ===
-  const [currentUser, setCurrentUser] = useState<{ username: string; password?: string } | null>(() => {
-    const local = localStorage.getItem('cpp_farm_currentUser');
-    if (local) {
-      try {
-        return JSON.parse(local);
-      } catch (e) {}
-    }
-    return null;
-  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authUsername, setAuthUsername] = useState<string>('');
@@ -777,18 +837,21 @@ export default function App() {
     };
   }, [openOnboarding, onboardingStep]);
 
-  // 本地儲存同步
+  // 本地儲存同步（依據當前帳號區隔）
   useEffect(() => {
-    localStorage.setItem('cpp_farm_gameState', JSON.stringify(gameState));
-  }, [gameState]);
+    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    localStorage.setItem(`cpp_farm_gameState_${uKey}`, JSON.stringify(gameState));
+  }, [gameState, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('cpp_farm_fields', JSON.stringify(fields));
-  }, [fields]);
+    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    localStorage.setItem(`cpp_farm_fields_${uKey}`, JSON.stringify(fields));
+  }, [fields, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('cpp_farm_tortoise', JSON.stringify(tortoise));
-  }, [tortoise]);
+    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    localStorage.setItem(`cpp_farm_tortoise_${uKey}`, JSON.stringify(tortoise));
+  }, [tortoise, currentUser]);
 
   // 雲端資料庫備份同步與自動儲存
   useEffect(() => {
@@ -827,6 +890,10 @@ export default function App() {
     playSynthSound('click', isMuted);
     setCurrentUser(null);
     localStorage.removeItem('cpp_farm_currentUser');
+    // 登出後切換至全新預設狀態，防止進度跨帳號繼承
+    setGameState(createDefaultGameState());
+    setFields(createDefaultFields());
+    setTortoise(createDefaultTortoise());
   };
 
   // 登入送出
@@ -866,21 +933,30 @@ export default function App() {
         setAuthPassword('');
         playSynthSound('levelUp', isMuted);
       } else {
-        // Login success
+        // 登入成功
         const loggedUser = { username: data.username, password: authPassword };
         setCurrentUser(loggedUser);
         localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
 
-        // If server has saved game states, restore them
-        if (data.gameState) {
-          setGameState(data.gameState);
-        }
+        // 如果伺服器有該帳號的遊戲進度則載入；若無（全新帳號）則重置為該帳號獨立的初始預設進度！
+        setGameState(data.gameState ? { ...createDefaultGameState(), ...data.gameState } : createDefaultGameState());
+
         if (data.fields) {
-          setFields(data.fields);
+          const parsed = data.fields as FieldPlot[];
+          setFields(FIELD_PLOTS_DATA.map((fresh) => {
+            const saved = parsed.find(p => p.id === fresh.id);
+            return {
+              ...fresh,
+              isIrrigated: saved ? saved.isIrrigated : false,
+              bestStreak: saved ? saved.bestStreak : 0,
+              lastAttemptDate: saved ? saved.lastAttemptDate : null
+            };
+          }));
+        } else {
+          setFields(createDefaultFields());
         }
-        if (data.tortoise) {
-          setTortoise(data.tortoise);
-        }
+
+        setTortoise(data.tortoise ? { ...createDefaultTortoise(), ...data.tortoise } : createDefaultTortoise());
 
         playSynthSound('levelUp', isMuted);
         setIsAuthModalOpen(false);
@@ -892,59 +968,11 @@ export default function App() {
     }
   };
 
-  // 社群登入處理 (Google, Facebook, Apple ID)
+  // 社群登入處理 (已被移除)
   const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
     playSynthSound('click', isMuted);
-    setAuthError(null);
-    setAuthSuccess(null);
-    setSocialLoadingProvider(provider);
-
-    // 模擬 1 秒的高畫質驗證載入動畫，提升使用者體驗與科技感
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    let displayName = '';
-    let providerId = '';
-
-    if (provider === 'google') {
-      displayName = 'Google 使用者';
-      providerId = 'g_' + Math.random().toString(36).substring(2, 9);
-    } else if (provider === 'facebook') {
-      displayName = 'Facebook 玩家';
-      providerId = 'fb_' + Math.random().toString(36).substring(2, 9);
-    } else {
-      displayName = 'Apple 用戶';
-      providerId = 'ap_' + Math.random().toString(36).substring(2, 9);
-    }
-
-    try {
-      const res = await fetch('/api/auth/social-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, providerId, displayName })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setAuthError(data.error || '社群登入失敗');
-        setSocialLoadingProvider(null);
-        return;
-      }
-
-      const loggedUser = { username: data.username, userKey: data.userKey };
-      setCurrentUser(loggedUser);
-      localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
-
-      if (data.gameState) setGameState(data.gameState);
-      if (data.fields) setFields(data.fields);
-      if (data.tortoise) setTortoise(data.tortoise);
-
-      playSynthSound('levelUp', isMuted);
-      setIsAuthModalOpen(false);
-    } catch (e) {
-      setAuthError('社群登入連線失敗');
-    } finally {
-      setSocialLoadingProvider(null);
-    }
+    setAuthError('已停用社群登入方式，請使用帳號登入。');
+    setSocialLoadingProvider(null);
   };
 
   // 隨機烏龜動態講話
@@ -1915,11 +1943,10 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => {
-                      if (window.confirm('確定要退出目前的灌溉挑戰嗎？已答對的題目將不會被計入。')) {
-                        setActiveFieldId(null);
-                      }
+                      playSynthSound('click', isMuted);
+                      setActiveFieldId(null);
                     }}
-                    className="flex items-center gap-1.5 text-xs text-green-700 font-extrabold font-display hover:text-green-900 transition bg-white border border-green-200 px-3.5 py-2 rounded-full shadow-sm"
+                    className="flex items-center gap-1.5 text-xs text-green-700 font-extrabold font-display hover:text-green-900 transition bg-white border border-green-200 px-3.5 py-2 rounded-full shadow-sm cursor-pointer active:scale-95"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> ◄ 放棄挑戰，回良田
                   </button>
@@ -3830,61 +3857,7 @@ export default function App() {
               </button>
             </form>
 
-            {/* Social Logins */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium px-1">
-                <div className="h-px bg-slate-800 flex-1"></div>
-                <span className="mx-3 uppercase tracking-wider font-mono">或使用社群快速登入</span>
-                <div className="h-px bg-slate-800 flex-1"></div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                {/* Google */}
-                <button
-                  type="button"
-                  disabled={!!socialLoadingProvider || authLoading}
-                  onClick={() => handleSocialLogin('google')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 hover:border-red-500/50 bg-[#0c0e14] hover:bg-red-500/5 text-slate-300 hover:text-white transition group disabled:opacity-50"
-                >
-                  {socialLoadingProvider === 'google' ? (
-                    <span className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin mb-1"></span>
-                  ) : (
-                    <span className="text-lg mb-0.5 group-hover:scale-115 transition-transform duration-200">🔴</span>
-                  )}
-                  <span className="text-[10px] font-bold font-display">Google</span>
-                </button>
-
-                {/* Facebook */}
-                <button
-                  type="button"
-                  disabled={!!socialLoadingProvider || authLoading}
-                  onClick={() => handleSocialLogin('facebook')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 hover:border-blue-500/50 bg-[#0c0e14] hover:bg-blue-500/5 text-slate-300 hover:text-white transition group disabled:opacity-50"
-                >
-                  {socialLoadingProvider === 'facebook' ? (
-                    <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-1"></span>
-                  ) : (
-                    <span className="text-lg mb-0.5 group-hover:scale-115 transition-transform duration-200">🔵</span>
-                  )}
-                  <span className="text-[10px] font-bold font-display">Facebook</span>
-                </button>
-
-                {/* Apple */}
-                <button
-                  type="button"
-                  disabled={!!socialLoadingProvider || authLoading}
-                  onClick={() => handleSocialLogin('apple')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 hover:border-slate-400/50 bg-[#0c0e14] hover:bg-slate-800/20 text-slate-300 hover:text-white transition group disabled:opacity-50"
-                >
-                  {socialLoadingProvider === 'apple' ? (
-                    <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mb-1"></span>
-                  ) : (
-                    <span className="text-lg mb-0.5 group-hover:scale-115 transition-transform duration-200">⚫</span>
-                  )}
-                  <span className="text-[10px] font-bold font-display">Apple ID</span>
-                </button>
-              </div>
-            </div>
+            {/* Social Logins - Removed per user request (Only Anonymous/Account login active) */}
 
             {/* Toggle mode */}
             <div className="text-center">
