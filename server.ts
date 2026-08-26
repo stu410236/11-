@@ -269,23 +269,28 @@ app.post("/api/auth/save-progress", async (req, res) => {
   }
 });
 
-// Social Login
+// Social & Anonymous Login
 app.post("/api/auth/social-login", async (req, res) => {
   try {
-    const { provider, providerId, displayName } = req.body;
-    if (!provider || !providerId || !displayName) {
-      res.status(400).json({ error: "遺失社群登入資訊" });
+    const { provider, providerId, displayName, customNickname } = req.body;
+    if (!provider || !providerId) {
+      res.status(400).json({ error: "遺失登入資訊" });
       return;
     }
 
+    const finalName = (customNickname && customNickname.trim()) || displayName || (provider === 'anonymous' ? '匿名農夫' : 'Google 使用者');
     const userKey = `social_${provider}_${providerId}`.toLowerCase();
     let user = await getUser(userKey);
 
     if (!user) {
       user = {
-        username: displayName,
+        username: finalName,
         passwordHash: `social_${provider}_pwd_secret_1298`,
       };
+      await saveUser(userKey, user);
+    } else if (customNickname && customNickname.trim() && user.username !== customNickname.trim()) {
+      // Update nickname if custom nickname provided
+      user.username = customNickname.trim();
       await saveUser(userKey, user);
     }
 
@@ -300,6 +305,53 @@ app.post("/api/auth/social-login", async (req, res) => {
   } catch (error: any) {
     console.error("Social login error:", error);
     res.status(500).json({ error: "伺服器錯誤" });
+  }
+});
+
+// Update Nickname Endpoint
+app.post("/api/auth/update-nickname", async (req, res) => {
+  try {
+    const { username, userKey, newNickname, password } = req.body;
+    if (!newNickname || !newNickname.trim()) {
+      res.status(400).json({ error: "請輸入有效的新暱稱" });
+      return;
+    }
+
+    const trimmedNickname = newNickname.trim();
+    if (trimmedNickname.length > 25) {
+      res.status(400).json({ error: "暱稱長度不能超過 25 個字元" });
+      return;
+    }
+
+    const targetKey = userKey ? userKey.trim() : (username ? username.trim() : '');
+    if (!targetKey) {
+      res.status(400).json({ error: "遺失使用者資訊" });
+      return;
+    }
+
+    const user = await getUser(targetKey);
+    if (!user) {
+      // If user not in DB yet, create user with this nickname
+      const newUser: SavedUserData = {
+        username: trimmedNickname,
+        passwordHash: password || 'anonymous_pwd_secret',
+      };
+      await saveUser(targetKey, newUser);
+      res.json({ success: true, username: trimmedNickname });
+      return;
+    }
+
+    user.username = trimmedNickname;
+    await saveUser(targetKey, user);
+
+    res.json({
+      success: true,
+      username: trimmedNickname,
+      message: "暱稱更新成功"
+    });
+  } catch (error: any) {
+    console.error("Update nickname error:", error);
+    res.status(500).json({ error: "更新暱稱失敗" });
   }
 });
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 
 // Web App's Firebase configuration provided by the user
 const firebaseConfig = {
@@ -23,6 +23,20 @@ try {
 } catch (e) {
   console.error("Firebase client initialization failed:", e);
 }
+
+const RANDOM_FARMER_NICKNAMES = [
+  '指標巡邏官', '記憶體守護者', '範本魔法師', '智慧指標宗師',
+  '析構狂戰士', '遞迴探索家', '多型架構師', '編譯器征服者',
+  'Lambda領航員', '極速重載專家', '動態配置學者', '虛擬函式獵人',
+  '命名空間開拓者', '重載神槍手', '農村C++達人', '演算法農夫',
+  '現代C++大師', '陣列開拓者', '引用守護神', '結構體匠人'
+];
+
+const generateRandomNickname = () => {
+  const prefix = RANDOM_FARMER_NICKNAMES[Math.floor(Math.random() * RANDOM_FARMER_NICKNAMES.length)];
+  const num = Math.floor(100 + Math.random() * 900);
+  return `${prefix}#${num}`;
+};
 import { 
   Sparkles, 
   Droplet, 
@@ -589,8 +603,15 @@ export default function App() {
     equippedAccessories: {},
   });
 
+  const getStorageUserKey = (u: { username?: string; userKey?: string } | null) => {
+    if (!u) return 'guest';
+    if (u.userKey) return u.userKey.trim().toLowerCase();
+    if (u.username) return u.username.trim().toLowerCase();
+    return 'guest';
+  };
+
   // === 4. 帳號狀態（優先載入） ===
-  const [currentUser, setCurrentUser] = useState<{ username: string; password?: string; userKey?: string } | null>(() => {
+  const [currentUser, setCurrentUser] = useState<{ username: string; password?: string; userKey?: string; authType?: 'google' | 'anonymous' | 'password' } | null>(() => {
     const local = localStorage.getItem('cpp_farm_currentUser');
     if (local) {
       try {
@@ -607,7 +628,7 @@ export default function App() {
     if (localUserStr) {
       try {
         const u = JSON.parse(localUserStr);
-        if (u?.username) uKey = u.username.trim().toLowerCase();
+        uKey = getStorageUserKey(u);
       } catch (e) {}
     }
     const local = localStorage.getItem(`cpp_farm_gameState_${uKey}`);
@@ -630,7 +651,7 @@ export default function App() {
     if (localUserStr) {
       try {
         const u = JSON.parse(localUserStr);
-        if (u?.username) uKey = u.username.trim().toLowerCase();
+        uKey = getStorageUserKey(u);
       } catch (e) {}
     }
     const local = localStorage.getItem(`cpp_farm_fields_${uKey}`);
@@ -658,7 +679,7 @@ export default function App() {
     if (localUserStr) {
       try {
         const u = JSON.parse(localUserStr);
-        if (u?.username) uKey = u.username.trim().toLowerCase();
+        uKey = getStorageUserKey(u);
       } catch (e) {}
     }
     const local = localStorage.getItem(`cpp_farm_tortoise_${uKey}`);
@@ -705,14 +726,21 @@ export default function App() {
 
   // === 4. 帳號與同步狀態 ===
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authMethodTab, setAuthMethodTab] = useState<'quick' | 'account'>('quick');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authUsername, setAuthUsername] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
+  const [customNickname, setCustomNickname] = useState<string>(() => generateRandomNickname());
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
-  const [socialLoadingProvider, setSocialLoadingProvider] = useState<'google' | 'facebook' | 'apple' | null>(null);
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState<'google' | 'anonymous' | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  // 獨立暱稱修改狀態
+  const [isNicknameModalOpen, setIsNicknameModalOpen] = useState<boolean>(false);
+  const [newNicknameInput, setNewNicknameInput] = useState<string>('');
+  const [isUpdatingNickname, setIsUpdatingNickname] = useState<boolean>(false);
 
   // === 4.5. 每日任務狀態 ===
   const [isDailyQuestOpen, setIsDailyQuestOpen] = useState<boolean>(false);
@@ -839,17 +867,17 @@ export default function App() {
 
   // 本地儲存同步（依據當前帳號區隔）
   useEffect(() => {
-    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    const uKey = getStorageUserKey(currentUser);
     localStorage.setItem(`cpp_farm_gameState_${uKey}`, JSON.stringify(gameState));
   }, [gameState, currentUser]);
 
   useEffect(() => {
-    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    const uKey = getStorageUserKey(currentUser);
     localStorage.setItem(`cpp_farm_fields_${uKey}`, JSON.stringify(fields));
   }, [fields, currentUser]);
 
   useEffect(() => {
-    const uKey = currentUser?.username ? currentUser.username.trim().toLowerCase() : 'guest';
+    const uKey = getStorageUserKey(currentUser);
     localStorage.setItem(`cpp_farm_tortoise_${uKey}`, JSON.stringify(tortoise));
   }, [tortoise, currentUser]);
 
@@ -896,7 +924,226 @@ export default function App() {
     setTortoise(createDefaultTortoise());
   };
 
-  // 登入送出
+  // Google 登入
+  const handleGoogleLogin = async () => {
+    playSynthSound('click', isMuted);
+    setAuthError(null);
+    setAuthSuccess(null);
+    setSocialLoadingProvider('google');
+
+    try {
+      if (!auth) {
+        throw new Error('Firebase Auth 模組尚未準備完成，請重新整理網頁後重試。');
+      }
+
+      const googleProvider = new GoogleAuthProvider();
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
+
+      const result = await signInWithPopup(auth, googleProvider);
+      const googleName = result.user.displayName || 'Google 使用者';
+      const providerId = result.user.uid;
+      const finalNickname = customNickname.trim() || googleName;
+
+      const res = await fetch('/api/auth/social-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'google',
+          providerId,
+          displayName: googleName,
+          customNickname: finalNickname
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || 'Google 登入失敗');
+        setSocialLoadingProvider(null);
+        return;
+      }
+
+      const loggedUser = {
+        username: data.username,
+        userKey: data.userKey,
+        authType: 'google' as const
+      };
+      setCurrentUser(loggedUser);
+      localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
+
+      // 載入該帳號進度
+      setGameState(data.gameState ? { ...createDefaultGameState(), ...data.gameState } : createDefaultGameState());
+
+      if (data.fields) {
+        const parsed = data.fields as FieldPlot[];
+        setFields(FIELD_PLOTS_DATA.map((fresh) => {
+          const saved = parsed.find(p => p.id === fresh.id);
+          return {
+            ...fresh,
+            isIrrigated: saved ? saved.isIrrigated : false,
+            bestStreak: saved ? saved.bestStreak : 0,
+            lastAttemptDate: saved ? saved.lastAttemptDate : null
+          };
+        }));
+      } else {
+        setFields(createDefaultFields());
+      }
+
+      setTortoise(data.tortoise ? { ...createDefaultTortoise(), ...data.tortoise } : createDefaultTortoise());
+
+      playSynthSound('levelUp', isMuted);
+      setAuthSuccess(`🎉 歡迎！Google 登入成功，農夫暱稱「${data.username}」！`);
+      setTimeout(() => {
+        setIsAuthModalOpen(false);
+        setAuthSuccess(null);
+      }, 1000);
+    } catch (e: any) {
+      console.error("Google login error:", e);
+      if (e.code === 'auth/popup-blocked') {
+        setAuthError('彈出視窗已被瀏覽器封鎖！請在網址列右側允許彈出視窗後重試。');
+      } else if (e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
+        setAuthError('Google 登入已取消。');
+      } else {
+        setAuthError(`Google 登入失敗: ${e.message || e}`);
+      }
+    } finally {
+      setSocialLoadingProvider(null);
+    }
+  };
+
+  // 匿名登入 (訪客快速開始)
+  const handleAnonymousLogin = async () => {
+    playSynthSound('click', isMuted);
+    setAuthError(null);
+    setAuthSuccess(null);
+    setSocialLoadingProvider('anonymous');
+
+    try {
+      let providerId = '';
+
+      if (auth) {
+        try {
+          const anonResult = await signInAnonymously(auth);
+          providerId = anonResult.user.uid;
+        } catch (authErr: any) {
+          console.warn("Firebase signInAnonymously fallback to local anonymous ID:", authErr);
+          const existingAnonId = localStorage.getItem('cpp_farm_anon_uid');
+          providerId = existingAnonId || ('anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36));
+          localStorage.setItem('cpp_farm_anon_uid', providerId);
+        }
+      } else {
+        const existingAnonId = localStorage.getItem('cpp_farm_anon_uid');
+        providerId = existingAnonId || ('anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36));
+        localStorage.setItem('cpp_farm_anon_uid', providerId);
+      }
+
+      const finalNickname = customNickname.trim() || generateRandomNickname();
+
+      const res = await fetch('/api/auth/social-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'anonymous',
+          providerId,
+          displayName: finalNickname,
+          customNickname: finalNickname
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || '匿名登入失敗');
+        setSocialLoadingProvider(null);
+        return;
+      }
+
+      const loggedUser = {
+        username: data.username,
+        userKey: data.userKey,
+        authType: 'anonymous' as const
+      };
+      setCurrentUser(loggedUser);
+      localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
+
+      // 載入進度
+      setGameState(data.gameState ? { ...createDefaultGameState(), ...data.gameState } : createDefaultGameState());
+
+      if (data.fields) {
+        const parsed = data.fields as FieldPlot[];
+        setFields(FIELD_PLOTS_DATA.map((fresh) => {
+          const saved = parsed.find(p => p.id === fresh.id);
+          return {
+            ...fresh,
+            isIrrigated: saved ? saved.isIrrigated : false,
+            bestStreak: saved ? saved.bestStreak : 0,
+            lastAttemptDate: saved ? saved.lastAttemptDate : null
+          };
+        }));
+      } else {
+        setFields(createDefaultFields());
+      }
+
+      setTortoise(data.tortoise ? { ...createDefaultTortoise(), ...data.tortoise } : createDefaultTortoise());
+
+      playSynthSound('levelUp', isMuted);
+      setAuthSuccess(`🎉 匿名模式就緒！歡迎農夫「${data.username}」！`);
+      setTimeout(() => {
+        setIsAuthModalOpen(false);
+        setAuthSuccess(null);
+      }, 1000);
+    } catch (e: any) {
+      console.error("Anonymous login error:", e);
+      setAuthError(`匿名登入失敗: ${e.message || e}`);
+    } finally {
+      setSocialLoadingProvider(null);
+    }
+  };
+
+  // 修改 / 更新暱稱
+  const handleUpdateNickname = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNicknameInput.trim()) return;
+    const cleanNick = newNicknameInput.trim();
+    setIsUpdatingNickname(true);
+    playSynthSound('click', isMuted);
+
+    try {
+      const res = await fetch('/api/auth/update-nickname', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUser?.username,
+          userKey: currentUser?.userKey,
+          newNickname: cleanNick,
+          password: currentUser?.password
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updatedUser = {
+          ...currentUser!,
+          username: cleanNick
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem('cpp_farm_currentUser', JSON.stringify(updatedUser));
+        setIsNicknameModalOpen(false);
+        playSynthSound('levelUp', isMuted);
+        setClaimFeedback(`✨ 暱稱已成功更新為「${cleanNick}」！`);
+        setTimeout(() => setClaimFeedback(null), 3000);
+      } else {
+        alert(data.error || '更新暱稱失敗');
+      }
+    } catch (err) {
+      console.error("Update nickname error:", err);
+      alert('更新暱稱時發生連線錯誤');
+    } finally {
+      setIsUpdatingNickname(false);
+    }
+  };
+
+  // 帳號密碼登入 / 註冊送出
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -934,7 +1181,7 @@ export default function App() {
         playSynthSound('levelUp', isMuted);
       } else {
         // 登入成功
-        const loggedUser = { username: data.username, password: authPassword };
+        const loggedUser = { username: data.username, password: authPassword, authType: 'password' as const };
         setCurrentUser(loggedUser);
         localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
 
@@ -959,20 +1206,17 @@ export default function App() {
         setTortoise(data.tortoise ? { ...createDefaultTortoise(), ...data.tortoise } : createDefaultTortoise());
 
         playSynthSound('levelUp', isMuted);
-        setIsAuthModalOpen(false);
+        setAuthSuccess(`🎉 登入成功，歡迎「${data.username}」！`);
+        setTimeout(() => {
+          setIsAuthModalOpen(false);
+          setAuthSuccess(null);
+        }, 1000);
       }
     } catch (err) {
       setAuthError('連線錯誤，請確認伺服器狀態');
     } finally {
       setAuthLoading(false);
     }
-  };
-
-  // 社群登入處理 (已被移除)
-  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
-    playSynthSound('click', isMuted);
-    setAuthError('已停用社群登入方式，請使用帳號登入。');
-    setSocialLoadingProvider(null);
   };
 
   // 隨機烏龜動態講話
@@ -1511,19 +1755,39 @@ export default function App() {
           {/* 帳號登入與靜音快速工具 */}
           <div className="flex items-center gap-2">
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="雲端同步中"></span>
-                <span className="text-emerald-200 font-medium max-w-[80px] truncate" title={currentUser.username}>
-                  {currentUser.username}
-                </span>
-                {isSyncing ? (
-                  <span className="text-[10px] text-emerald-400/60 font-mono">syncing...</span>
+              <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 pl-2 pr-1.5 py-1 rounded-full text-xs shadow-inner">
+                {currentUser.authType === 'google' ? (
+                  <span className="text-xs" title="Google 登入帳號">🌐</span>
+                ) : currentUser.authType === 'anonymous' ? (
+                  <span className="text-xs" title="匿名農夫帳號">👤</span>
                 ) : (
-                  <span className="text-[10px] text-emerald-400/40 font-mono">synced</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="帳號已連線"></span>
                 )}
+                
+                {/* 暱稱顯示與點擊編輯 */}
+                <button
+                  onClick={() => {
+                    playSynthSound('click', isMuted);
+                    setNewNicknameInput(currentUser.username);
+                    setIsNicknameModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 text-emerald-200 hover:text-white font-medium max-w-[110px] truncate transition group cursor-pointer"
+                  title="點擊修改暱稱"
+                >
+                  <span className="truncate">{currentUser.username}</span>
+                  <Edit2 className="w-3 h-3 text-emerald-400/70 group-hover:text-emerald-300 shrink-0" />
+                </button>
+
+                {isSyncing ? (
+                  <span className="text-[9px] text-emerald-400/70 font-mono">同步中</span>
+                ) : (
+                  <span className="text-[9px] text-emerald-400/40 font-mono">已同步</span>
+                )}
+
                 <button
                   onClick={handleLogout}
-                  className="text-slate-400 hover:text-rose-400 transition ml-1 text-[11px] font-bold"
+                  className="text-slate-400 hover:text-rose-400 transition ml-0.5 px-1.5 py-0.5 rounded hover:bg-rose-500/10 text-[11px] font-bold"
+                  title="登出帳號"
                 >
                   登出
                 </button>
@@ -1531,16 +1795,16 @@ export default function App() {
             ) : (
               <button
                 onClick={() => {
-                  setAuthMode('login');
-                  setAuthUsername('');
-                  setAuthPassword('');
+                  playSynthSound('click', isMuted);
+                  setAuthMethodTab('quick');
+                  setCustomNickname(generateRandomNickname());
                   setAuthError(null);
                   setAuthSuccess(null);
                   setIsAuthModalOpen(true);
                 }}
-                className="flex items-center gap-1 bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold transition font-display"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 border border-emerald-500/40 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold transition font-display shadow-sm active:scale-95"
               >
-                <span>🔑 登入存檔</span>
+                <span>🔑 登入 / 建立暱稱</span>
               </button>
             )}
 
@@ -3781,31 +4045,180 @@ export default function App() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           {/* Backdrop with elegant blur */}
           <div 
-            className="absolute inset-0 bg-slate-950/75 backdrop-blur-md"
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
             onClick={() => setIsAuthModalOpen(false)}
           />
 
           {/* Dialog Container */}
-          <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative z-10 flex flex-col space-y-5 animate-fade-in text-slate-200">
+          <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl w-full max-w-md p-6 shadow-2xl relative z-10 flex flex-col space-y-4 animate-fade-in text-slate-200">
             {/* Header */}
-            <div className="text-center space-y-1.5">
-              <div className="inline-block text-3xl animate-bounce">🔑</div>
+            <div className="text-center space-y-1">
+              <div className="inline-block text-3xl animate-bounce">🌱</div>
               <h2 className="text-base font-black tracking-wider text-white font-display">
-                {authMode === 'login' ? 'C++ 科技學籍登入' : '註冊全新科技學籍'}
+                C++ 良田農夫學籍登入
               </h2>
               <p className="text-[10px] text-emerald-400 font-mono tracking-wide uppercase">
-                {authMode === 'login' ? 'LOGIN TO SYNC YOUR PROGRESS TO CLOUD' : 'REGISTER TO SAVE DATA SECURELY'}
+                CHOOSE GOOGLE OR ANONYMOUS FARMER IDENTITY
               </p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">
-                  學籍帳號 (Username)
-                </label>
-                <div className="relative">
+            {/* Tab Selector: 快速登入 (Google / 匿名) vs 密碼帳號 */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/70 border border-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  playSynthSound('click', isMuted);
+                  setAuthMethodTab('quick');
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition font-display flex items-center justify-center gap-1.5 ${
+                  authMethodTab === 'quick'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>⚡ 快速授權登入</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playSynthSound('click', isMuted);
+                  setAuthMethodTab('account');
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition font-display flex items-center justify-center gap-1.5 ${
+                  authMethodTab === 'account'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>🔒 密碼帳號</span>
+              </button>
+            </div>
+
+            {/* Error and Success states */}
+            {authError && (
+              <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[11px] text-center font-medium leading-relaxed">
+                ⚠️ {authError}
+              </div>
+            )}
+            {authSuccess && (
+              <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] text-center font-medium leading-relaxed">
+                {authSuccess}
+              </div>
+            )}
+
+            {/* Tab 1: 快速授權登入 (支援建立自訂暱稱 + Google + 匿名) */}
+            {authMethodTab === 'quick' && (
+              <div className="space-y-4">
+                {/* 暱稱建立 / 設定區域 */}
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-emerald-500/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                      <span>🏷️ 設定你的農夫暱稱</span>
+                      <span className="text-[10px] text-slate-400 font-normal">(登入後可隨時更換)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSynthSound('click', isMuted);
+                        setCustomNickname(generateRandomNickname());
+                      }}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-mono transition bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30"
+                      title="隨機生成一個有趣的農夫暱稱"
+                    >
+                      🎲 隨機骰一個
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={customNickname}
+                      onChange={(e) => setCustomNickname(e.target.value)}
+                      placeholder="例如：C++ 鋤頭宗師、指標神農"
+                      maxLength={18}
+                      className="w-full bg-slate-900 text-slate-100 text-xs rounded-xl py-2 px-3 border border-emerald-500/40 focus:outline-none focus:border-emerald-400 transition"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    💡 點選下方按鈕後，將以自訂的「<strong>{customNickname || '隨機暱稱'}</strong>」作為您在良田中的代表名稱！
+                  </p>
+                </div>
+
+                {/* Google 登入按鈕 */}
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={authLoading || !!socialLoadingProvider}
+                  className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-2.5 px-4 rounded-xl shadow-md transition border border-slate-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+                >
+                  {socialLoadingProvider === 'google' ? (
+                    <span className="text-xs text-slate-700 animate-pulse">Google 登入連線中...</span>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.97 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                      <span className="text-xs font-display text-slate-800">
+                        使用 Google 帳號授權登入
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                {/* 分隔線 */}
+                <div className="flex items-center gap-2 text-slate-500 text-[10px]">
+                  <div className="flex-1 h-px bg-slate-800" />
+                  <span>或快速體驗</span>
+                  <div className="flex-1 h-px bg-slate-800" />
+                </div>
+
+                {/* 匿名登入 (訪客快速進入) */}
+                <button
+                  type="button"
+                  onClick={handleAnonymousLogin}
+                  disabled={authLoading || !!socialLoadingProvider}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-display text-xs"
+                >
+                  {socialLoadingProvider === 'anonymous' ? (
+                    <span className="animate-pulse">建立匿名農夫進度中...</span>
+                  ) : (
+                    <>
+                      <span>👤</span>
+                      <span>以「{customNickname || '匿名農夫'}」立即開始遊戲</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Tab 2: 傳統自訂密碼帳號登入 / 註冊 */}
+            {authMethodTab === 'account' && (
+              <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+                {/* Username */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">
+                    學籍帳號 (Username)
+                  </label>
                   <input
                     type="text"
                     value={authUsername}
@@ -3813,82 +4226,137 @@ export default function App() {
                     placeholder="輸入帳號 (至少 2 個字)"
                     maxLength={20}
                     required
-                    className="w-full bg-[#070b14] text-slate-200 text-xs rounded-xl py-2.5 px-3 border border-slate-700/80 focus:outline-none focus:border-emerald-500/80 transition"
+                    className="w-full bg-[#070b14] text-slate-200 text-xs rounded-xl py-2.5 px-3 border border-slate-700 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
-              </div>
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">
-                  安全密碼 (Password)
-                </label>
-                <div className="relative">
+                {/* Password */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">
+                    安全密碼 (Password)
+                  </label>
                   <input
                     type="password"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     placeholder="輸入密碼"
                     required
-                    className="w-full bg-[#070b14] text-slate-200 text-xs rounded-xl py-2.5 px-3 border border-slate-700/80 focus:outline-none focus:border-emerald-500/80 transition"
+                    className="w-full bg-[#070b14] text-slate-200 text-xs rounded-xl py-2.5 px-3 border border-slate-700 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
-              </div>
 
-              {/* Error and Success states */}
-              {authError && (
-                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] text-center font-medium">
-                  ⚠️ {authError}
+                {/* Actions */}
+                <button
+                  type="submit"
+                  disabled={authLoading || !!socialLoadingProvider}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded-xl py-2.5 text-xs font-black hover:from-emerald-400 hover:to-teal-400 transition shadow-lg shadow-emerald-500/15 font-display disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {authLoading ? '請稍候...' : authMode === 'login' ? '登入帳號 & 雲端同步 ➔' : '立即註冊帳號 ➔'}
+                </button>
+
+                {/* Toggle mode */}
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setAuthMode(authMode === 'login' ? 'register' : 'login');
+                      setAuthError(null);
+                      setAuthSuccess(null);
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-emerald-400 transition underline decoration-dotted underline-offset-4 cursor-pointer"
+                  >
+                    {authMode === 'login' ? '沒有帳號？點此註冊一個 ➔' : '已有帳號？切換至登入 ➔'}
+                  </button>
                 </div>
-              )}
-              {authSuccess && (
-                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] text-center font-medium">
-                  🎉 {authSuccess}
-                </div>
-              )}
+              </form>
+            )}
 
-              {/* Actions */}
-              <button
-                type="submit"
-                disabled={authLoading || !!socialLoadingProvider}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded-xl py-2.5 text-xs font-black hover:from-emerald-400 hover:to-teal-400 transition shadow-lg shadow-emerald-500/15 font-display disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {authLoading ? '請稍候...' : authMode === 'login' ? '登入學籍 & 同步 ➔' : '立即註冊帳號 ➔'}
-              </button>
-            </form>
-
-            {/* Social Logins - Removed per user request (Only Anonymous/Account login active) */}
-
-            {/* Toggle mode */}
-            <div className="text-center">
+            {/* Footer tips / close */}
+            <div className="border-t border-slate-800/80 pt-3 flex items-center justify-between text-[10px] text-slate-500">
+              <span className="font-mono">CPP_FARM_AUTH_v2.0</span>
               <button
                 type="button"
                 onClick={() => {
                   playSynthSound('click', isMuted);
-                  setAuthMode(authMode === 'login' ? 'register' : 'login');
-                  setAuthError(null);
-                  setAuthSuccess(null);
-                }}
-                className="text-[11px] text-slate-400 hover:text-emerald-400 transition underline decoration-dotted underline-offset-4"
-              >
-                {authMode === 'login' ? '沒有帳號？註冊一個新的 ➔' : '已有帳號？切換到登入模式 ➔'}
-              </button>
-            </div>
-
-            {/* Footer tips / close */}
-            <div className="border-t border-slate-800 pt-3 flex items-center justify-between text-[10px] text-slate-500">
-              <span className="font-mono">CPP_STUDENT_v1.0</span>
-              <button
-                onClick={() => {
-                  playSynthSound('click', isMuted);
                   setIsAuthModalOpen(false);
                 }}
-                className="hover:text-slate-300 transition"
+                className="hover:text-slate-300 transition cursor-pointer font-mono"
               >
                 [ 關閉視窗 ]
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 7.5. NICKNAME MODIFICATION MODAL (農夫暱稱修改視窗) */}
+      {/* ========================================================= */}
+      {isNicknameModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            onClick={() => setIsNicknameModalOpen(false)}
+          />
+
+          <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative z-10 flex flex-col space-y-4 animate-fade-in text-slate-200">
+            <div className="text-center space-y-1">
+              <div className="inline-block text-3xl">✏️</div>
+              <h2 className="text-base font-black tracking-wider text-white font-display">
+                修改農夫暱稱
+              </h2>
+              <p className="text-[10px] text-emerald-400 font-mono">
+                UPDATE YOUR DISPLAY NICKNAME
+              </p>
+            </div>
+
+            <form onSubmit={handleUpdateNickname} className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300">
+                    新農夫暱稱
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setNewNicknameInput(generateRandomNickname());
+                    }}
+                    className="text-[10px] text-emerald-400 hover:text-emerald-300 font-mono bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/30"
+                  >
+                    🎲 隨機產生
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={newNicknameInput}
+                  onChange={(e) => setNewNicknameInput(e.target.value)}
+                  placeholder="輸入新的暱稱"
+                  maxLength={18}
+                  required
+                  className="w-full bg-[#070b14] text-slate-100 text-xs rounded-xl py-2.5 px-3 border border-slate-700 focus:outline-none focus:border-emerald-500 transition"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNicknameModalOpen(false)}
+                  className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingNickname || !newNicknameInput.trim()}
+                  className="flex-1 py-2 text-xs font-black text-slate-950 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 rounded-xl transition font-display disabled:opacity-50"
+                >
+                  {isUpdatingNickname ? '儲存中...' : '確認修改 ➔'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
