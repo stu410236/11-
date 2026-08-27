@@ -1052,23 +1052,12 @@ if (userSnap.exists()) {
     setSocialLoadingProvider('anonymous');
 
     try {
-      let providerId = '';
+if (!auth || !db) {
+  throw new Error('Firebase 尚未準備完成，請重新整理後再試。');
+}
 
-      if (auth) {
-        try {
-          const anonResult = await signInAnonymously(auth);
-          providerId = anonResult.user.uid;
-        } catch (authErr: any) {
-          console.warn("Firebase signInAnonymously fallback to local anonymous ID:", authErr);
-          const existingAnonId = localStorage.getItem('cpp_farm_anon_uid');
-          providerId = existingAnonId || ('anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36));
-          localStorage.setItem('cpp_farm_anon_uid', providerId);
-        }
-      } else {
-        const existingAnonId = localStorage.getItem('cpp_farm_anon_uid');
-        providerId = existingAnonId || ('anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36));
-        localStorage.setItem('cpp_farm_anon_uid', providerId);
-      }
+const anonResult = await signInAnonymously(auth);
+const providerId = anonResult.user.uid;
 
       const finalNickname = customNickname.trim() || generateRandomNickname();
 
