@@ -1064,24 +1064,50 @@ if (userSnap.exists()) {
 
       const finalNickname = customNickname.trim() || generateRandomNickname();
 
-      const res = await fetch('/api/auth/social-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: 'anonymous',
-          providerId,
-          displayName: finalNickname,
-          customNickname: finalNickname
-        })
-      });
+const userRef = doc(db, 'users', providerId);
+const userSnap = await getDoc(userRef);
 
-      const data = await res.json();
-      if (!res.ok) {
-        setAuthError(data.error || '匿名登入失敗');
-        setSocialLoadingProvider(null);
-        return;
-      }
+let data: any;
 
+if (userSnap.exists()) {
+  data = {
+    ...userSnap.data(),
+    userKey: providerId
+  };
+
+  if (!data.username) {
+    data.username = finalNickname;
+
+    await setDoc(
+      userRef,
+      {
+        username: finalNickname,
+        authType: 'anonymous',
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+  }
+
+} else {
+  data = {
+    username: finalNickname,
+    userKey: providerId,
+    authType: 'anonymous',
+    gameState: null,
+    fields: null,
+    tortoise: null
+  };
+
+  await setDoc(
+    userRef,
+    {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }
+  );
+}
       const loggedUser = {
         username: data.username,
         userKey: data.userKey,
