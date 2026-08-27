@@ -890,22 +890,21 @@ export default function App() {
     const timer = setTimeout(async () => {
       try {
         setIsSyncing(true);
-        const res = await fetch('/api/auth/save-progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: currentUser.username,
-            password: currentUser.password,
-            userKey: currentUser.userKey,
-            gameState,
-            fields,
-            tortoise
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.error("Cloud sync failed:", data.error);
-        }
+        if (!db || !currentUser.userKey) {
+  throw new Error('Firestore 或使用者 UID 尚未準備完成');
+}
+
+await setDoc(
+  doc(db, 'users', currentUser.userKey),
+  {
+    username: currentUser.username,
+    gameState,
+    fields,
+    tortoise,
+    updatedAt: serverTimestamp()
+  },
+  { merge: true }
+);
       } catch (e) {
         console.error("Cloud sync network error:", e);
       } finally {
