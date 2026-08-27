@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInAnonymously,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Web App's Firebase configuration provided by the user
@@ -1207,61 +1215,153 @@ if (userSnap.exists()) {
     }
 
     try {
-      const url = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: authUsername.trim(),
-          password: authPassword
-        })
-      });
+     const username = authUsername.trim();
 
-      const data = await res.json();
-      if (!res.ok) {
-        setAuthError(data.error || '操作失敗，請重試');
-        setAuthLoading(false);
-        return;
+// Firebase Email/Password 需要 email 格式。
+// 使用者畫面仍然只需要輸入「學籍帳號」。
+const firebaseEmail = `${username}@cppfarm.app`;
+
+let firebaseUser;
+
+if (authMode === 'register') {
+  const credential = await createUserWithEmailAndPassword(
+    auth,
+    firebaseEmail,
+    authPassword
+  );
+
+  firebaseUser = credential.user;
+
+} else {
+  const credential = await signInWithEmailAndPassword(
+    auth,
+    firebaseEmail,
+    authPassword
+  );
+
+  firebaseUser = credential.user;
+}
+
+const userRef = doc(db, 'users', firebaseUser.uid);
+const userSnap = await getDoc(userRef);
+
+let data: any;
+
+if (authMode === 'register') {
+
+  // 建立新的 Firestore 玩家資料
+  data = {
+    username,
+    userKey: firebaseUser.uid,
+    authType: 'password',
+    gameState: null,
+    fields: null,
+    tortoise: null
+  };
+
+  await setDoc(
+    userRef,
+    {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }
+  );
+
+  // Firebase 註冊成功後會自動登入，
+  // 這裡先登出，讓使用者重新以帳密登入
+  await signOut(auth);
+
+  setAuthSuccess('註冊成功！已為您自動切換至登入模式。');
+  setAuthMode('login');
+  setAuthPassword('');
+  playSynthSound('levelUp', isMuted);
+
+} else {
+
+  // 登入後讀取 Firestore 玩家資料
+  if (userSnap.exists()) {
+    data = {
+      ...userSnap.data(),
+      userKey: firebaseUser.uid
+    };
+  } else {
+    // Firebase 帳號存在，但 Firestore 尚未有資料時自動補建
+    data = {
+      username,
+      userKey: firebaseUser.uid,
+      authType: 'password',
+      gameState: null,
+      fields: null,
+      tortoise: null
+    };
+
+    await setDoc(
+      userRef,
+      {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       }
+    );
+  }
 
-      if (authMode === 'register') {
-        setAuthSuccess('註冊成功！已為您自動切換至登入模式。');
-        setAuthMode('login');
-        setAuthPassword('');
-        playSynthSound('levelUp', isMuted);
-      } else {
-        // 登入成功
-        const loggedUser = { username: data.username, password: authPassword, authType: 'password' as const };
-        setCurrentUser(loggedUser);
-        localStorage.setItem('cpp_farm_currentUser', JSON.stringify(loggedUser));
+  const loggedUser = {
+    username: data.username || username,
+    userKey: firebaseUser.uid,
+    authType: 'password' as const
+  };
 
-        // 如果伺服器有該帳號的遊戲進度則載入；若無（全新帳號）則重置為該帳號獨立的初始預設進度！
-        setGameState(data.gameState ? { ...createDefaultGameState(), ...data.gameState } : createDefaultGameState());
+  setCurrentUser(loggedUser);
 
-        if (data.fields) {
-          const parsed = data.fields as FieldPlot[];
-          setFields(FIELD_PLOTS_DATA.map((fresh) => {
-            const saved = parsed.find(p => p.id === fresh.id);
-            return {
-              ...fresh,
-              isIrrigated: saved ? saved.isIrrigated : false,
-              bestStreak: saved ? saved.bestStreak : 0,
-              lastAttemptDate: saved ? saved.lastAttemptDate : null
-            };
-          }));
-        } else {
-          setFields(createDefaultFields());
-        }
+  localStorage.setItem(
+    'cpp_farm_currentUser',
+    JSON.stringify(loggedUser)
+  );
 
-        setTortoise(data.tortoise ? { ...createDefaultTortoise(), ...data.tortoise } : createDefaultTortoise());
+  // 載入遊戲進度
+  setGameState(
+    data.gameState
+      ? { ...createDefaultGameState(), ...data.gameState }
+      : createDefaultGameState()
+  );
 
-        playSynthSound('levelUp', isMuted);
-        setAuthSuccess(`🎉 登入成功，歡迎「${data.username}」！`);
-        setTimeout(() => {
-          setIsAuthModalOpen(false);
-          setAuthSuccess(null);
-        }, 1000);
-      }
+  if (data.fields) {
+    const parsed = data.fields as FieldPlot[];
+
+    setFields(
+      FIELD_PLOTS_DATA.map((fresh) => {
+        const saved = parsed.find(p => p.id === fresh.id);
+
+        return {
+          ...fresh,
+          isIrrigated: saved ? saved.isIrrigated : false,
+          bestStreak: saved ? saved.bestStreak : 0,
+          lastAttemptDate: saved ? saved.lastAttemptDate : null
+        };
+      })
+    );
+  } else {
+    setFields(createDefaultFields());
+  }
+
+  setTortoise(
+    data.tortoise
+      ? { ...createDefaultTortoise(), ...data.tortoise }
+      : createDefaultTortoise()
+  );
+
+  playSynthSound('levelUp', isMuted);
+
+  setAuthSuccess(
+    `🎉 登入成功，歡迎「${data.username || username}」！`
+  );
+
+  setTimeout(() => {
+    setIsAuthModalOpen(false);
+    setAuthSuccess(null);
+  }, 1000);
+}
     } catch (err) {
       setAuthError('連線錯誤，請確認伺服器狀態');
     } finally {
