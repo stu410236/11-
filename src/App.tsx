@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Web App's Firebase configuration provided by the user
 const firebaseConfig = {
@@ -17,9 +18,11 @@ const firebaseConfig = {
 // Initialize Firebase client-side instance safely
 let appInstance: any = null;
 let auth: any = null;
+let db: any = null;
 try {
   appInstance = initializeApp(firebaseConfig);
   auth = getAuth(appInstance);
+  db = getFirestore(appInstance);
 } catch (e) {
   console.error("Firebase client initialization failed:", e);
 }
@@ -946,24 +949,46 @@ export default function App() {
       const providerId = result.user.uid;
       const finalNickname = customNickname.trim() || googleName;
 
-      const res = await fetch('/api/auth/social-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: 'google',
-          providerId,
-          displayName: googleName,
-          customNickname: finalNickname
-        })
-      });
+      const userRef = doc(db, 'users', providerId);
+const userSnap = await getDoc(userRef);
 
-      const data = await res.json();
-      if (!res.ok) {
-        setAuthError(data.error || 'Google 登入失敗');
-        setSocialLoadingProvider(null);
-        return;
-      }
+let data: any;
 
+if (userSnap.exists()) {
+  data = {
+    ...userSnap.data(),
+    userKey: providerId
+  };
+
+  if (!data.username) {
+    data.username = finalNickname;
+
+    await setDoc(
+      userRef,
+      {
+        username: finalNickname,
+        authType: 'google',
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+  }
+} else {
+  data = {
+    username: finalNickname,
+    userKey: providerId,
+    authType: 'google',
+    gameState: null,
+    fields: null,
+    tortoise: null
+  };
+
+  await setDoc(userRef, {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
       const loggedUser = {
         username: data.username,
         userKey: data.userKey,
