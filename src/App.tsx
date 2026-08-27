@@ -1351,8 +1351,9 @@ if (authMode === 'register') {
     setAuthSuccess(null);
   }, 1000);
 }
-    } catch (err) {
-      setAuthError('連線錯誤，請確認伺服器狀態');
+   } catch (err: any) {
+      console.error('Password auth error:', err);
+      setAuthError(`登入失敗：${err.code || ''} ${err.message || err}`);
     } finally {
       setAuthLoading(false);
     }
