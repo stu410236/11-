@@ -8,6 +8,7 @@ import {
   verifyDailyChallengeAnswer 
 } from '../utils/dailyChallenge';
 import { getChapterForField } from '../data/cppCards';
+import { getQuestionTypeMeta } from './QuestionCardRenderer';
 
 interface DailyChallengeModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
 
   const { question, chapterInfo } = dailyChallengeQuestion;
   const isCompletedToday = dailyChallengeState?.lastCompletedDate === todayDateKey;
+  const meta = getQuestionTypeMeta(question.type);
+  const isMultipleChoice = question.type === 'code_reading' && question.options && question.options.length > 0;
 
   // 當打開 Modal 時重設狀態
   useEffect(() => {
@@ -66,12 +69,12 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
     }
     if (!answerInput.trim()) {
       playSynthSound('wrong', isMuted);
-      setFeedback({ type: 'error', message: '請先輸入您的 C++ 程式碼答案！' });
+      setFeedback({ type: 'error', message: '請先輸入您的 C++ 答案或選擇選項！' });
       return;
     }
 
     setIsSubmitting(true);
-    const isCorrect = verifyDailyChallengeAnswer(answerInput, question.expectedAnswer);
+    const isCorrect = verifyDailyChallengeAnswer(answerInput, question);
 
     if (isCorrect) {
       playSynthSound('correct', isMuted);
@@ -184,6 +187,10 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {/* Chapter & Topic Badges */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border ${meta.badgeBg}`}>
+              <span>{meta.emoji}</span>
+              <span>{meta.label}</span>
+            </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 rounded-full text-[11px] font-bold">
               {chapterInfo.emoji} 第 {chapterInfo.chapter} 章：{chapterInfo.topic}
             </span>
@@ -231,11 +238,55 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
             </div>
           </div>
 
-          {/* Input Box & Submit Area */}
-          <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Interaction Area: Multiple Choice OR Input Box */}
+          {isMultipleChoice ? (
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                <span>📖 請選擇正確答案：</span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {question.options!.map((opt, idx) => {
+                  const optLetter = String.fromCharCode(65 + idx);
+                  const isSelected = answerInput.toUpperCase() === optLetter || answerInput.toLowerCase() === opt.toLowerCase();
+                  const isCorrectOption = question.correctOption === idx;
+
+                  let optStyles = 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-emerald-500/50 hover:bg-slate-900';
+                  if (isCompletedToday) {
+                    if (isCorrectOption) {
+                      optStyles = 'bg-emerald-950/70 border-emerald-400 text-emerald-200';
+                    } else {
+                      optStyles = 'bg-slate-950/30 border-slate-900 text-slate-600 opacity-50';
+                    }
+                  } else if (isSelected) {
+                    optStyles = 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={isCompletedToday || isSubmitting}
+                      onClick={() => setAnswerInput(optLetter)}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 text-xs font-mono cursor-pointer ${optStyles}`}
+                    >
+                      <span className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                        isSelected || (isCompletedToday && isCorrectOption)
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {optLetter}
+                      </span>
+                      <span className="pt-0.5 leading-snug">{opt.replace(/^[A-D]\.\s*/i, '')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-                <span>⌨️ 請輸入 <code className="text-amber-300 font-mono">___</code> 處的正確 C++ 語法：</span>
+                <span>⌨️ {meta.promptLabel}</span>
               </label>
 
               <div className="relative">
@@ -244,7 +295,7 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
                   disabled={isCompletedToday || isSubmitting}
-                  placeholder={isCompletedToday ? question.expectedAnswer : "輸入你的程式碼答案..."}
+                  placeholder={isCompletedToday ? question.expectedAnswer : meta.inputPlaceholder}
                   className={`w-full bg-[#070b14] text-slate-100 text-xs sm:text-sm rounded-xl py-3 px-3.5 border transition-all font-mono focus:outline-none ${
                     isCompletedToday 
                       ? 'border-emerald-500/60 bg-emerald-950/20 text-emerald-300 cursor-not-allowed'
@@ -261,92 +312,94 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
                 )}
               </div>
             </div>
+          )}
 
-            {/* Feedback Message */}
-            <AnimatePresence>
-              {feedback && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className={`p-3 rounded-xl border text-xs leading-relaxed flex items-start gap-2 ${
-                    feedback.type === 'success'
-                      ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-200'
-                      : 'bg-rose-950/50 border-rose-500/40 text-rose-200'
-                  }`}
-                >
-                  {feedback.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          {/* Feedback Message */}
+          <AnimatePresence>
+            {feedback && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className={`p-3 rounded-xl border text-xs leading-relaxed flex items-start gap-2 ${
+                  feedback.type === 'success'
+                    ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-200'
+                    : 'bg-rose-950/50 border-rose-500/40 text-rose-200'
+                }`}
+              >
+                {feedback.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-bold">{feedback.message}</p>
+                  {feedback.type === 'success' && question.explanation && (
+                    <p className="text-[11px] text-emerald-300/80 mt-1 pt-1 border-t border-emerald-500/20">
+                      💡 <strong>解析：</strong>{question.explanation}
+                    </p>
                   )}
-                  <div className="flex-1">
-                    <p className="font-bold">{feedback.message}</p>
-                    {feedback.type === 'success' && question.explanation && (
-                      <p className="text-[11px] text-emerald-300/80 mt-1 pt-1 border-t border-emerald-500/20">
-                        💡 <strong>解析：</strong>{question.explanation}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Reward Preview Bar */}
-            <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-[11px]">
-              <span className="text-slate-400 font-mono">🏆 今日挑戰獎勵：</span>
-              <div className="flex items-center gap-2.5 font-bold font-mono">
-                <span className="text-amber-400 flex items-center gap-0.5">
-                  🪙 +{DAILY_CHALLENGE_REWARD.coins}
-                </span>
-                <span className="text-green-400 flex items-center gap-0.5">
-                  🥬 +{DAILY_CHALLENGE_REWARD.cabbages}
-                </span>
-                <span className="text-sky-400 flex items-center gap-0.5">
-                  🪣 +{DAILY_CHALLENGE_REWARD.waterBuckets}
-                </span>
-                <span className="text-emerald-400 flex items-center gap-0.5">
-                  🐢 +{DAILY_CHALLENGE_REWARD.tortoiseXp} XP
-                </span>
-              </div>
+          {/* Reward Preview Bar */}
+          <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 font-mono">🏆 今日挑戰獎勵：</span>
+            <div className="flex items-center gap-2.5 font-bold font-mono">
+              <span className="text-amber-400 flex items-center gap-0.5">
+                🪙 +{DAILY_CHALLENGE_REWARD.coins}
+              </span>
+              <span className="text-green-400 flex items-center gap-0.5">
+                🥬 +{DAILY_CHALLENGE_REWARD.cabbages}
+              </span>
+              <span className="text-sky-400 flex items-center gap-0.5">
+                🪣 +{DAILY_CHALLENGE_REWARD.waterBuckets}
+              </span>
+              <span className="text-emerald-400 flex items-center gap-0.5">
+                🐢 +{DAILY_CHALLENGE_REWARD.tortoiseXp} XP
+              </span>
             </div>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                playSynthSound('click', isMuted);
+                onClose();
+              }}
+              className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition font-display cursor-pointer"
+            >
+              {isCompletedToday ? '關閉視窗' : '稍後再做'}
+            </button>
+
+            {!isCompletedToday ? (
               <button
                 type="button"
-                onClick={() => {
-                  playSynthSound('click', isMuted);
-                  onClose();
-                }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition font-display"
+                onClick={() => handleSubmit()}
+                disabled={isSubmitting || !answerInput.trim()}
+                className="flex-[2] py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition shadow-lg shadow-emerald-500/20 font-display flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
-                {isCompletedToday ? '關閉視窗' : '稍後再做'}
+                <span>🚀 提交驗證答案</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
-
-              {!isCompletedToday ? (
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-[2] py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition shadow-lg shadow-emerald-500/20 font-display flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
-                >
-                  <span>🚀 提交驗證答案</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-[2] py-2.5 px-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition font-display"
-                >
-                  ✓ 今日已領取獎勵
-                </button>
-              )}
-            </div>
-          </form>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-[2] py-2.5 px-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition font-display cursor-pointer"
+              >
+                ✓ 今日已領取，明日見！
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
   );
 };
+
 

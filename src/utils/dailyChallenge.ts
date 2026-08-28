@@ -1,5 +1,6 @@
 import { CPlusPlusCard, DailyChallengeState } from '../types';
 import { getChapterForField } from '../data/cppCards';
+import { verifyQuestionAnswer } from './answerVerification';
 
 /**
  * 每日限定挑戰獎勵數值常數
@@ -142,24 +143,26 @@ export function getDailyChallengeQuestion(
 }
 
 /**
- * 檢驗答案邏輯 (支援空格彈性處理)
+ * 檢驗答案邏輯 (支援 6 大題型與空格彈性處理)
  */
-export function verifyDailyChallengeAnswer(input: string, expected: string): boolean {
-  if (!input || !expected) return false;
-  const cleanInput = input.trim();
-  const cleanExpected = expected.trim();
+export function verifyDailyChallengeAnswer(input: string, expectedOrQuestion: string | CPlusPlusCard): boolean {
+  if (!input) return false;
   
-  // 完全相同
-  if (cleanInput === cleanExpected) return true;
+  if (typeof expectedOrQuestion !== 'string') {
+    return verifyQuestionAnswer(input, expectedOrQuestion);
+  }
 
-  // 移除多餘連續空格後比對
-  const normalizedInput = cleanInput.replace(/\s+/g, ' ');
-  const normalizedExpected = cleanExpected.replace(/\s+/g, ' ');
-  if (normalizedInput === normalizedExpected) return true;
+  const dummyCard: CPlusPlusCard = {
+    id: 'dc_verify',
+    fieldId: 1,
+    type: 'fill_blank',
+    title: '',
+    chineseDescription: '',
+    codeTemplate: '',
+    expectedAnswer: expectedOrQuestion,
+    hint: '',
+    explanation: ''
+  };
 
-  // 去除運算子周圍空格的比對 (例如 `i++` vs `i ++`, `a+b` vs `a + b`)
-  const removeOpSpaces = (s: string) => s.replace(/\s*([+\-*/%=><!&|;,{}()[\]])\s*/g, '$1');
-  if (removeOpSpaces(cleanInput) === removeOpSpaces(cleanExpected)) return true;
-
-  return false;
+  return verifyQuestionAnswer(input, dummyCard);
 }

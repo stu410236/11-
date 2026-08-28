@@ -83,14 +83,28 @@ import {
   Timer
 } from 'lucide-react';
 import { CPP_CARDS_DATA, FIELD_PLOTS_DATA, CHAPTERS_DATA, getChapterForField } from './data/cppCards';
-import { CPlusPlusCard, FieldPlot, TortoisePet, GameState, DailyChallengeState } from './types';
+import { CPlusPlusCard, FieldPlot, TortoisePet, GameState, DailyChallengeState, SecretAchievementRecord } from './types';
 import { DailyChallengeModal } from './components/DailyChallengeModal';
+import { QuestionCardRenderer, getQuestionTypeMeta } from './components/QuestionCardRenderer';
+import { verifyQuestionAnswer } from './utils/answerVerification';
 import { 
   getTaiwanDateKey, 
   getDailyChallengeQuestion, 
   calculateDailyChallengeStreak, 
   DAILY_CHALLENGE_REWARD 
 } from './utils/dailyChallenge';
+import {
+  SECRET_ACHIEVEMENTS,
+  SecretAchievementDefinition,
+  getTaiwanHour,
+  getTaiwanFormattedNow,
+  createDefaultAchievementStats,
+  RARITY_CONFIG
+} from './data/secretAchievements';
+import {
+  SecretAchievementUnlockModal,
+  SecretAchievementDetailModal
+} from './components/SecretAchievementModal';
 
 // Web Audio API 音效合成器
 function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed' | 'water' | 'pet' | 'levelUp', isMuted: boolean) {
@@ -606,7 +620,9 @@ export default function App() {
       bestStreak: 0,
       totalCompleted: 0,
       lastQuestionId: undefined
-    }
+    },
+    unlockedAchievements: {},
+    achievementStats: createDefaultAchievementStats()
   });
 
   const createDefaultFields = (): FieldPlot[] => FIELD_PLOTS_DATA.map(f => ({
@@ -781,6 +797,123 @@ export default function App() {
     return getDailyChallengeQuestion(todayDateKey, CPP_CARDS_DATA);
   }, [todayDateKey]);
   const isDailyChallengeCompletedToday = gameState.dailyChallenge?.lastCompletedDate === todayDateKey;
+
+  // === 4.55. 隱藏成就專屬狀態 ===
+  const [newlyUnlockedSecret, setNewlyUnlockedSecret] = useState<SecretAchievementDefinition | null>(null);
+  const [viewingSecretDetail, setViewingSecretDetail] = useState<{ def: SecretAchievementDefinition; record: SecretAchievementRecord | null } | null>(null);
+  const [hasUsedHintInCurrentField, setHasUsedHintInCurrentField] = useState<boolean>(false);
+
+  // === 隱藏成就檢測與解鎖核心函式 ===
+  const checkAndUnlockSecretAchievements = (params?: {
+    customGameState?: GameState;
+    customFields?: FieldPlot[];
+    customTortoise?: TortoisePet;
+    justCompletedFieldId?: number;
+    justCompletedFieldSuccess?: boolean;
+    justAnsweredCorrectly?: boolean;
+  }) => {
+    const currentGS = params?.customGameState || gameState;
+    const currentFields = params?.customFields || fields;
+    const currentTortoise = params?.customTortoise || tortoise;
+    const unlockedMap = currentGS.unlockedAchievements || {};
+    const currentHourTW = getTaiwanHour();
+
+    const newlyUnlocked: SecretAchievementDefinition[] = [];
+
+    SECRET_ACHIEVEMENTS.forEach(def => {
+      if (unlockedMap[def.id]) return; // 已解鎖過，不重複觸發
+
+      const passed = def.check({
+        gameState: currentGS,
+        fields: currentFields,
+        tortoise: currentTortoise,
+        todayDateKey,
+        currentHourTW,
+        justCompletedFieldId: params?.justCompletedFieldId,
+        justCompletedFieldSuccess: params?.justCompletedFieldSuccess,
+        justAnsweredCorrectly: params?.justAnsweredCorrectly,
+      });
+
+      if (passed) {
+        newlyUnlocked.push(def);
+      }
+    });
+
+    if (newlyUnlocked.length === 0) return;
+
+    const formattedNow = getTaiwanFormattedNow();
+    let addCoins = 0;
+    let addCabbages = 0;
+    let addWater = 0;
+    const updatedUnlocked: Record<string, SecretAchievementRecord> = { ...unlockedMap };
+
+    newlyUnlocked.forEach(def => {
+      updatedUnlocked[def.id] = {
+        id: def.id,
+        unlockedAt: formattedNow,
+        rarity: def.rarity,
+        badgeId: def.badgeId,
+      };
+      addCoins += def.reward.coins;
+      addCabbages += def.reward.cabbages;
+      addWater += def.reward.waterBuckets;
+    });
+
+    // 安全更新 state，杜絕重複循環
+    setGameState(prev => {
+      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+      return {
+        ...prev,
+        coins: prev.coins + addCoins,
+        cabbages: prev.cabbages + addCabbages,
+        waterBuckets: prev.waterBuckets + addWater,
+        unlockedAchievements: {
+          ...(prev.unlockedAchievements || {}),
+          ...updatedUnlocked,
+        },
+        achievementStats: {
+          ...prevStats,
+          lifetimeCoinsEarned: (prevStats.lifetimeCoinsEarned || 0) + addCoins,
+          lifetimeCabbagesEarned: (prevStats.lifetimeCabbagesEarned || 0) + addCabbages,
+          lifetimeWaterEarned: (prevStats.lifetimeWaterEarned || 0) + addWater,
+        }
+      };
+    });
+
+    playSynthSound('levelUp', isMuted);
+    // 優先展示最高稀有度成就
+    const sortedNew = [...newlyUnlocked].sort((a, b) => {
+      const order = { mythic: 3, legendary: 2, epic: 1 };
+      return order[b.rarity] - order[a.rarity];
+    });
+    setNewlyUnlockedSecret(sortedNew[0]);
+  };
+
+  // 自動維護台灣時間的登入遊玩天數 (Unique Active Days)
+  useEffect(() => {
+    setGameState(prev => {
+      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+      const currentDays = prevStats.uniqueActiveDays || [];
+      if (!currentDays.includes(todayDateKey)) {
+        return {
+          ...prev,
+          achievementStats: {
+            ...prevStats,
+            uniqueActiveDays: [...currentDays, todayDateKey]
+          }
+        };
+      }
+      return prev;
+    });
+  }, [todayDateKey]);
+
+  // 載入玩家帳號或重整時，平順回溯檢驗已符合的成就
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkAndUnlockSecretAchievements();
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [currentUser]);
 
   // === 4.6. 灌溉挑戰倒數計時器狀態 ===
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -1450,6 +1583,7 @@ if (authMode === 'register') {
     const template = QUEST_TEMPLATES.find(t => t.id === questId);
     if (!template) return;
 
+    let nextGS: GameState | null = null;
     setGameState(prev => {
       const progress = prev.dailyQuestsProgress;
       if (!progress) return prev;
@@ -1468,7 +1602,8 @@ if (authMode === 'register') {
       setClaimFeedback(`🎉 已領取「${template.title}」獎勵：${rewardsText}！`);
       setTimeout(() => setClaimFeedback(null), 4000);
 
-      return {
+      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+      const updated: GameState = {
         ...prev,
         coins: prev.coins + template.rewardCoins,
         cabbages: prev.cabbages + (template.rewardCabbages || 0),
@@ -1479,9 +1614,22 @@ if (authMode === 'register') {
             ...questProgress,
             isClaimed: true
           }
+        },
+        achievementStats: {
+          ...prevStats,
+          lifetimeCoinsEarned: (prevStats.lifetimeCoinsEarned || 0) + template.rewardCoins,
+          lifetimeCabbagesEarned: (prevStats.lifetimeCabbagesEarned || 0) + (template.rewardCabbages || 0),
+          lifetimeWaterEarned: (prevStats.lifetimeWaterEarned || 0) + (template.rewardWaterBuckets || 0),
+          lifetimeDailyQuestsClaimed: (prevStats.lifetimeDailyQuestsClaimed || 0) + 1,
         }
       };
+      nextGS = updated;
+      return updated;
     });
+
+    if (nextGS) {
+      checkAndUnlockSecretAchievements({ customGameState: nextGS });
+    }
   };
 
   const hasUnclaimedQuests = QUEST_TEMPLATES.some(template => {
@@ -1521,9 +1669,11 @@ if (authMode === 'register') {
     );
 
     // 1. 更新遊戲資源與挑戰存檔
+    let nextGS: GameState | null = null;
     setGameState(prev => {
       const prevChallenge = prev.dailyChallenge || { streak: 0, bestStreak: 0, totalCompleted: 0 };
-      return {
+      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+      const updated: GameState = {
         ...prev,
         coins: prev.coins + DAILY_CHALLENGE_REWARD.coins,
         cabbages: prev.cabbages + DAILY_CHALLENGE_REWARD.cabbages,
@@ -1534,8 +1684,16 @@ if (authMode === 'register') {
           bestStreak: streakResult.newBestStreak,
           totalCompleted: (prevChallenge.totalCompleted || 0) + 1,
           lastQuestionId: questionId
+        },
+        achievementStats: {
+          ...prevStats,
+          lifetimeCoinsEarned: (prevStats.lifetimeCoinsEarned || 0) + DAILY_CHALLENGE_REWARD.coins,
+          lifetimeCabbagesEarned: (prevStats.lifetimeCabbagesEarned || 0) + DAILY_CHALLENGE_REWARD.cabbages,
+          lifetimeWaterEarned: (prevStats.lifetimeWaterEarned || 0) + DAILY_CHALLENGE_REWARD.waterBuckets,
         }
       };
+      nextGS = updated;
+      return updated;
     });
 
     // 2. 烏龜經驗值獎勵升級
@@ -1563,6 +1721,10 @@ if (authMode === 'register') {
     playSynthSound('levelUp', isMuted);
     setClaimFeedback(`🎉 今日限定挑戰完成！獲得金幣 +${DAILY_CHALLENGE_REWARD.coins}、高麗菜 +${DAILY_CHALLENGE_REWARD.cabbages}、聖泉水 +${DAILY_CHALLENGE_REWARD.waterBuckets}、烏龜經驗值 +${DAILY_CHALLENGE_REWARD.tortoiseXp}！`);
     setTimeout(() => setClaimFeedback(null), 5000);
+
+    if (nextGS) {
+      checkAndUnlockSecretAchievements({ customGameState: nextGS });
+    }
   };
 
   // === 4.7. 灌溉挑戰倒數計時器核心邏輯 (已移除計時限制) ===
@@ -1578,6 +1740,7 @@ if (authMode === 'register') {
   // 點擊田地，進入灌溉挑戰
   const handleSelectField = (fieldId: number) => {
     playSynthSound('click', isMuted);
+    setHasUsedHintInCurrentField(false);
     
     // 實作題目由淺入深且不重複：依據題目 ID 的尾部序號 (1 到 10) 排序，使難度慢慢遞增
     const fieldQuestions = CPP_CARDS_DATA.filter(card => card.fieldId === fieldId);
@@ -1607,8 +1770,7 @@ if (authMode === 'register') {
     
     const currentQuestion = activeQuestions[currentQuestionIndex];
     
-    const cleanedTyped = typedAnswer.trim();
-    const isCorrect = cleanedTyped.toLowerCase() === currentQuestion.expectedAnswer.toLowerCase();
+    const isCorrect = verifyQuestionAnswer(typedAnswer, currentQuestion);
     
     setIsAnswered(true);
     setIsAnswerCorrect(isCorrect);
@@ -1617,26 +1779,57 @@ if (authMode === 'register') {
       playSynthSound('correct', isMuted);
       setCurrentFieldCorrectAnswers(prev => prev + 1);
       updateQuestProgress('answer_questions', 1);
+
+      let nextGS: GameState | null = null;
       setGameState(prev => {
         const nextStreak = (prev.currentStreak || 0) + 1;
         const nextMaxStreak = Math.max(prev.maxStreak || 0, nextStreak);
-        return {
+        const prevStats = prev.achievementStats || createDefaultAchievementStats();
+        const nextConsecutive = (prevStats.consecutiveCorrectAnswers || 0) + 1;
+        const nextHighestStreak = Math.max(prevStats.highestCorrectStreak || 0, nextConsecutive, nextMaxStreak);
+        const nextNoHint = (showHint || hasUsedHintInCurrentField) ? 0 : ((prevStats.noHintCorrectStreak || 0) + 1);
+
+        const updated: GameState = {
           ...prev,
           coins: prev.coins + 2,
           score: prev.score + 1,
           currentStreak: nextStreak,
-          maxStreak: nextMaxStreak
+          maxStreak: nextMaxStreak,
+          achievementStats: {
+            ...prevStats,
+            lifetimeCorrectAnswers: (prevStats.lifetimeCorrectAnswers || 0) + 1,
+            lifetimeCoinsEarned: (prevStats.lifetimeCoinsEarned || 0) + 2,
+            consecutiveCorrectAnswers: nextConsecutive,
+            highestCorrectStreak: nextHighestStreak,
+            noHintCorrectStreak: nextNoHint,
+          }
         };
+        nextGS = updated;
+        return updated;
       });
+
       if (Math.random() > 0.4) {
         setTortoiseSpeech(`「哇！太棒了！『${currentQuestion.expectedAnswer}』答對了，智慧之泉正在滋潤這片良田！」`);
       }
+
+      if (nextGS) {
+        checkAndUnlockSecretAchievements({ customGameState: nextGS, justAnsweredCorrectly: true });
+      }
     } else {
       playSynthSound('wrong', isMuted);
-      setGameState(prev => ({
-        ...prev,
-        currentStreak: 0
-      }));
+      setGameState(prev => {
+        const prevStats = prev.achievementStats || createDefaultAchievementStats();
+        return {
+          ...prev,
+          currentStreak: 0,
+          achievementStats: {
+            ...prevStats,
+            consecutiveCorrectAnswers: 0,
+            noHintCorrectStreak: 0,
+            noHintPerfectFieldsStreak: 0,
+          }
+        };
+      });
     }
   };
 
@@ -1659,8 +1852,9 @@ if (authMode === 'register') {
       // 10 題結束！結算灌溉結果
       const isPerfect = currentFieldCorrectAnswers === 10;
       
+      let updatedFields: FieldPlot[] = [];
       setFields(prevFields => {
-        return prevFields.map(f => {
+        updatedFields = prevFields.map(f => {
           if (f.id === activeFieldId) {
             return {
               ...f,
@@ -1671,6 +1865,7 @@ if (authMode === 'register') {
           }
           return f;
         });
+        return updatedFields;
       });
 
       if (isPerfect) {
@@ -1687,20 +1882,56 @@ if (authMode === 'register') {
         }
         setTortoiseSpeech(`「太令人感動了！${currentField?.name || '這片良田'} 已經 100% 成功灌溉！收穫了鮮脆的高麗菜與潔淨的聖泉水！」`);
         
-        setGameState(prev => ({
-          ...prev,
-          coins: prev.coins + 50,
-          cabbages: prev.cabbages + 3,
-          waterBuckets: prev.waterBuckets + 3,
-          completedAttempts: {
-            ...prev.completedAttempts,
-            [activeFieldId]: true
-          }
-        }));
+        let nextGS: GameState | null = null;
+        setGameState(prev => {
+          const prevStats = prev.achievementStats || createDefaultAchievementStats();
+          const nextNoHintFields = hasUsedHintInCurrentField ? 0 : ((prevStats.noHintPerfectFieldsStreak || 0) + 1);
+          const updated: GameState = {
+            ...prev,
+            coins: prev.coins + 50,
+            cabbages: prev.cabbages + 3,
+            waterBuckets: prev.waterBuckets + 3,
+            completedAttempts: {
+              ...prev.completedAttempts,
+              [activeFieldId]: true
+            },
+            achievementStats: {
+              ...prevStats,
+              lifetimeCoinsEarned: (prevStats.lifetimeCoinsEarned || 0) + 50,
+              lifetimeCabbagesEarned: (prevStats.lifetimeCabbagesEarned || 0) + 3,
+              lifetimeWaterEarned: (prevStats.lifetimeWaterEarned || 0) + 3,
+              noHintPerfectFieldsStreak: nextNoHintFields,
+            }
+          };
+          nextGS = updated;
+          return updated;
+        });
 
         handleTortoiseXp(40);
+
+        if (nextGS) {
+          checkAndUnlockSecretAchievements({
+            customGameState: nextGS,
+            customFields: updatedFields.length > 0 ? updatedFields : undefined,
+            justCompletedFieldId: activeFieldId,
+            justCompletedFieldSuccess: true
+          });
+        }
       } else {
         setTortoiseSpeech(`「好可惜！這次只完成了 ${currentFieldCorrectAnswers}/10 題。田地需要 100% 完美答對才能完全被灌溉喔！讓我們再挑戰一次吧！」`);
+        setGameState(prev => {
+          const prevStats = prev.achievementStats || createDefaultAchievementStats();
+          const failCounts = { ...(prevStats.fieldFailureCounts || {}) };
+          failCounts[activeFieldId] = (failCounts[activeFieldId] || 0) + 1;
+          return {
+            ...prev,
+            achievementStats: {
+              ...prevStats,
+              fieldFailureCounts: failCounts,
+              noHintPerfectFieldsStreak: 0,
+            }
+          };
+        });
       }
 
       setActiveFieldId(null);
@@ -1710,6 +1941,7 @@ if (authMode === 'register') {
 
   // 處理烏龜獲得經驗值
   const handleTortoiseXp = (amount: number) => {
+    let nextTortoise: TortoisePet | null = null;
     setTortoise(prev => {
       let newXp = prev.xp + amount;
       let newLevel = prev.level;
@@ -1726,19 +1958,25 @@ if (authMode === 'register') {
         else if (newLevel >= 3) newApp = 'explorer';
 
         setTortoiseSpeech(`「嗶嗶！小綠龜升級到 Lvl.${newLevel} 了！我感覺寫 C++ 的手感更好了！」`);
-        return {
+        const updated: TortoisePet = {
           ...prev,
           level: newLevel,
           xp: newXp,
           appearance: newApp,
           happiness: Math.min(100, prev.happiness + 20)
         };
+        nextTortoise = updated;
+        return updated;
       }
       return {
         ...prev,
         xp: newXp
       };
     });
+
+    if (nextTortoise) {
+      checkAndUnlockSecretAchievements({ customTortoise: nextTortoise });
+    }
   };
 
   // 餵食烏龜 (高麗菜)
@@ -1815,9 +2053,27 @@ if (authMode === 'register') {
       hydration: Math.max(0, prev.hydration - 20),
     }));
     handleTortoiseXp(40);
+
+    let nextGS: GameState | null = null;
+    setGameState(prev => {
+      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+      const updated: GameState = {
+        ...prev,
+        achievementStats: {
+          ...prevStats,
+          turtleTrainCount: (prevStats.turtleTrainCount || 0) + 1
+        }
+      };
+      nextGS = updated;
+      return updated;
+    });
     
     const randomWisdom = TORTOISE_WISDOM_QUOTES[Math.floor(Math.random() * TORTOISE_WISDOM_QUOTES.length)];
     setTortoiseSpeech(`「特訓完畢！我學會了新技巧：${randomWisdom}」`);
+
+    if (nextGS) {
+      checkAndUnlockSecretAchievements({ customGameState: nextGS });
+    }
   };
 
   // 儲存修改的烏龜名字
@@ -2596,167 +2852,35 @@ if (authMode === 'register') {
                   )}
                 </div>
 
-                {/* 1E. Notebook styled core Q card */}
-                <div className="bg-[#fdf9ee] border-4 border-[#e6d0aa] rounded-3xl shadow-lg overflow-hidden relative">
-                  
-                  {/* Decorative notebook holes at top */}
-                  <div className="h-6 bg-[#ebdfc6] flex justify-around px-10 items-center border-b border-[#e2d4b7] pointer-events-none">
-                    {Array.from({ length: 12 }).map((_, idx) => (
-                      <div key={idx} className="w-2.5 h-2.5 rounded-full bg-[#fdf9ee] border border-gray-300 shadow-inner"></div>
-                    ))}
-                  </div>
-
-                  <div className="p-6 space-y-6">
-                    {/* Q title */}
-                    <div className="flex items-center justify-between border-b border-[#ebdcb9] pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                        <h4 className="text-sm font-black text-amber-900 font-display uppercase tracking-wider">
-                          第 {currentQuestionIndex + 1} 題：C++ 綜合編譯挑戰
-                        </h4>
-                      </div>
-                      <span className="text-[10px] text-red-600 font-black font-display tracking-widest bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                        ★ 完美挑戰 (10/10)
-                      </span>
-                    </div>
-
-                    {/* Question Statement */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] text-[#b4904c] font-bold tracking-widest font-mono uppercase block">【 挑戰目標 / TARGET 】</span>
-                      <p className="text-base text-gray-800 leading-relaxed font-semibold">
-                        {activeQuestions[currentQuestionIndex].chineseDescription}
-                      </p>
-                    </div>
-
-                    {/* Code Template Box */}
-                    <div className="space-y-2">
-                      <span className="text-[10px] text-[#b4904c] font-bold tracking-widest font-mono uppercase block">【 C++ 程式碼填空 / CODE STREAM 】</span>
-                      <div className="bg-[#1e2330] rounded-xl p-5 border-2 border-[#ebdfc6] text-white font-mono text-sm leading-relaxed overflow-x-auto whitespace-pre relative shadow-inner">
-                        <div className="text-[8px] text-gray-500 absolute top-2 right-3 font-mono">
-                          C++ SOURCE STREAM
-                        </div>
-                        
-                        <div className="pt-2">
-                          {activeQuestions[currentQuestionIndex].codeTemplate.split('______').map((part, index, array) => (
-                            <React.Fragment key={index}>
-                              <span>{part}</span>
-                              {index < array.length - 1 && (
-                                <span className="inline-block mx-1">
-                                  <input
-                                    type="text"
-                                    value={typedAnswer}
-                                    onChange={(e) => setTypedAnswer(e.target.value)}
-                                    disabled={isAnswered}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        if (isAnswered) {
-                                          handleNextQuestion();
-                                        } else {
-                                          handleSubmitAnswer();
-                                        }
-                                      }
-                                    }}
-                                    id="code-input"
-                                    placeholder="..."
-                                    className={`bg-white text-gray-900 border-2 font-black font-mono text-center rounded px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 transition-all w-48 ${
-                                      isAnswered
-                                        ? isAnswerCorrect
-                                          ? 'border-green-500 bg-green-50 text-green-700 shadow-[0_0_8px_rgba(74,222,128,0.4)]'
-                                          : 'border-red-500 bg-red-50 text-red-700 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
-                                        : 'border-yellow-300'
-                                    }`}
-                                    autoFocus
-                                  />
-                                </span>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Submit or Next Controls */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-5 border-t border-[#ebdcb9]">
-                      {/* Hint Button */}
-                      <div>
-                        {!isAnswered ? (
-                          <button
-                            onClick={() => {
-                              playSynthSound('click', isMuted);
-                              setShowHint(true);
-                            }}
-                            className="flex items-center gap-1.5 text-xs text-amber-600 font-extrabold font-display hover:text-amber-800 transition"
-                          >
-                            <HelpCircle className="w-4 h-4" /> 需要提示嗎？
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-500 font-mono">
-                            正確代碼：<strong className="text-green-600 font-mono text-sm ml-1 select-all">{activeQuestions[currentQuestionIndex].expectedAnswer}</strong>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="w-full sm:w-auto font-display">
-                        {!isAnswered ? (
-                          <button
-                            onClick={handleSubmitAnswer}
-                            disabled={!typedAnswer.trim()}
-                            id="submit-answer-btn"
-                            className="w-full sm:w-auto bg-green-600 text-white px-6 py-2.5 rounded-full font-black text-xs hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition duration-200 flex items-center justify-center gap-1.5"
-                          >
-                            送出編譯
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleNextQuestion}
-                            className="w-full sm:w-auto bg-blue-500 text-white px-6 py-2.5 rounded-full font-black text-xs hover:bg-blue-600 shadow-md transition duration-200 flex items-center justify-center gap-1.5"
-                          >
-                            {currentQuestionIndex === 9 ? '結算灌溉結果' : '下一題'} <ChevronRight className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Hint Display */}
-                    {showHint && !isAnswered && (
-                      <div className="p-4 rounded-xl bg-amber-100/50 border border-amber-300 text-xs text-amber-800 leading-relaxed font-sans shadow-inner">
-                        <strong>💡 小龜貼心提示：</strong> {activeQuestions[currentQuestionIndex].hint}
-                      </div>
-                    )}
-
-                    {/* Answer explanation card */}
-                    {isAnswered && (
-                      <div className={`p-4 rounded-2xl border font-sans ${
-                        isAnswerCorrect 
-                          ? 'bg-green-50 border-green-300 text-green-900 shadow-inner' 
-                          : 'bg-red-50 border-red-200 text-red-900 shadow-inner'
-                      } space-y-2`}>
-                        <div className="flex items-center gap-2">
-                          {isAnswerCorrect ? (
-                            <>
-                              <CheckCircle2 className="w-5 h-5 text-green-600" />
-                              <span className="text-xs font-black uppercase tracking-wider">編譯通過！滋潤良田。</span>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-5 h-5 text-red-500" />
-                              <span className="text-xs font-black uppercase tracking-wider">編譯失敗！水分蒸發。</span>
-                            </>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-1 text-xs">
-                          <div className="font-extrabold text-amber-900">【 知識點剖析 】</div>
-                          <p className="leading-relaxed text-gray-700">
-                            {activeQuestions[currentQuestionIndex].explanation}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
+                {/* 1E. Universal Multi-Type C++ Question Card Renderer */}
+                <QuestionCardRenderer
+                  question={activeQuestions[currentQuestionIndex]}
+                  typedAnswer={typedAnswer}
+                  onAnswerChange={setTypedAnswer}
+                  onSubmit={handleSubmitAnswer}
+                  onNext={handleNextQuestion}
+                  isAnswered={isAnswered}
+                  isAnswerCorrect={isAnswerCorrect}
+                  showHint={showHint}
+                  onShowHint={() => {
+                    playSynthSound('click', isMuted);
+                    setShowHint(true);
+                    setHasUsedHintInCurrentField(true);
+                    setGameState(prev => {
+                      const prevStats = prev.achievementStats || createDefaultAchievementStats();
+                      return {
+                        ...prev,
+                        achievementStats: {
+                          ...prevStats,
+                          noHintCorrectStreak: 0,
+                          noHintPerfectFieldsStreak: 0,
+                        }
+                      };
+                    });
+                  }}
+                  isLastQuestion={currentQuestionIndex === activeQuestions.length - 1}
+                  isReviewMode={!!fields.find(f => f.id === activeFieldId)?.isIrrigated}
+                />
 
               </div>
             )}
@@ -2824,20 +2948,22 @@ if (authMode === 'register') {
               {filteredCards.length > 0 ? (
                 filteredCards.map((card) => {
                   const relativeField = fields.find(f => f.id === card.fieldId);
-                  // Full solved code block representation
-                  const fullSolved = card.codeTemplate.replace('______', `【 ${card.expectedAnswer} 】`);
+                  const meta = getQuestionTypeMeta(card.type);
 
                   return (
                     <div key={card.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3.5 hover:border-green-300 transition-colors duration-200">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold font-display border ${meta.badgeBg}`}>
+                              {meta.emoji} {meta.label}
+                            </span>
                             <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold font-display">
                               {card.title}
                             </span>
                             <span className="text-[9px] text-gray-400 font-mono">ID: {card.id}</span>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1 font-sans">
+                          <p className="text-xs text-gray-600 mt-1 font-sans">
                             {card.chineseDescription}
                           </p>
                         </div>
@@ -2846,25 +2972,43 @@ if (authMode === 'register') {
                         </span>
                       </div>
 
-                      {/* Display full tilled solution */}
+                      {/* Display C++ code snippet */}
                       <div className="bg-[#1e2330] rounded-xl p-3.5 border border-[#ebdfc6]/10 text-white font-mono text-xs overflow-x-auto whitespace-pre">
-                        <span className="text-[8px] text-gray-500 block mb-1">C++ 語法範本：</span>
-                        {card.codeTemplate.split('______').map((part, index, array) => (
-                          <React.Fragment key={index}>
-                            <span className="text-gray-300">{part}</span>
-                            {index < array.length - 1 && (
-                              <span className="bg-green-500/20 text-green-400 font-black px-1.5 py-0.5 rounded border border-green-500/40 mx-1">
-                                {card.expectedAnswer}
-                              </span>
-                            )}
-                          </React.Fragment>
-                        ))}
+                        <span className="text-[8px] text-gray-400 block mb-1">C++ 程式碼範本：</span>
+                        <div className="text-emerald-200 leading-relaxed">
+                          {card.codeTemplate}
+                        </div>
                       </div>
 
-                      {/* Explanation details */}
-                      <div className="bg-gray-50 rounded-xl p-3.5 text-[11px] text-gray-600 leading-relaxed space-y-1">
-                        <strong className="text-gray-700 block text-xs">💡 語法解說：</strong>
-                        <p>{card.explanation}</p>
+                      {/* Multiple choice options if code reading */}
+                      {card.options && card.options.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                          {card.options.map((opt, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`text-[11px] font-mono px-2 py-1 rounded ${
+                                card.correctOption === idx 
+                                  ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' 
+                                  : 'text-slate-600'
+                              }`}
+                            >
+                              {opt}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Standard answer & Explanation details */}
+                      <div className="bg-gray-50 rounded-xl p-3.5 text-[11px] text-gray-600 leading-relaxed space-y-1.5 border border-gray-100">
+                        <div className="flex items-center gap-1.5 text-xs font-mono">
+                          <strong className="text-gray-700">標準解答：</strong>
+                          <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded select-all">
+                            {card.expectedAnswer}
+                          </span>
+                        </div>
+                        <p className="text-gray-700">
+                          <strong className="text-gray-800">💡 知識點剖析：</strong>{card.explanation}
+                        </p>
                       </div>
                     </div>
                   );
@@ -3629,6 +3773,7 @@ if (authMode === 'register') {
         {/* TAB 4.5: 成就 (ACHIEVEMENTS VIEW) */}
         {/* ========================================================= */}
         {currentTab === 'achievements' && (() => {
+          // 既有普通成就清單 (完整保留，絕不破壞)
           const achievementsList = [
             {
               id: 'score_1',
@@ -3764,117 +3909,320 @@ if (authMode === 'register') {
             },
           ];
 
-          const unlockedCount = achievementsList.filter(a => a.isUnlocked).length;
-          const totalCount = achievementsList.length;
-          const progressPercentage = Math.round((unlockedCount / totalCount) * 100);
+          const standardUnlockedCount = achievementsList.filter(a => a.isUnlocked).length;
+          const standardTotalCount = achievementsList.length;
+
+          // 隱藏成就處理 (傳說殿堂)
+          const unlockedMap = gameState.unlockedAchievements || {};
+          const unlockedSecrets: Array<{ def: SecretAchievementDefinition; record: SecretAchievementRecord }> = [];
+          const lockedSecrets: SecretAchievementDefinition[] = [];
+
+          SECRET_ACHIEVEMENTS.forEach(def => {
+            const rec = unlockedMap[def.id];
+            if (rec) {
+              unlockedSecrets.push({ def, record: rec });
+            } else {
+              lockedSecrets.push(def);
+            }
+          });
+
+          // 傳說殿堂排序：神話 (Mythic) -> 傳說 (Legendary) -> 史詩 (Epic)
+          const rarityOrder = { mythic: 3, legendary: 2, epic: 1 };
+          unlockedSecrets.sort((a, b) => {
+            const diff = (rarityOrder[b.def.rarity] || 0) - (rarityOrder[a.def.rarity] || 0);
+            if (diff !== 0) return diff;
+            return b.record.unlockedAt.localeCompare(a.record.unlockedAt);
+          });
+
+          const secretUnlockedCount = unlockedSecrets.length;
+          const secretTotalCount = SECRET_ACHIEVEMENTS.length;
+          const totalAllAchievements = standardTotalCount + secretTotalCount;
+          const totalUnlockedAll = standardUnlockedCount + secretUnlockedCount;
+          const totalProgressPercent = Math.round((totalUnlockedAll / totalAllAchievements) * 100);
 
           return (
-            <div className="space-y-6 animate-fade-in font-display">
+            <div className="space-y-8 animate-fade-in font-display">
               {/* TOP SUMMARY PROGRESS BAR */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 shadow-md backdrop-blur-sm">
+              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 shadow-xl backdrop-blur-md">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <h2 className="text-lg font-black text-emerald-400 flex items-center gap-2">
                       <Award className="w-5 h-5 text-yellow-400 animate-bounce" />
-                      C++ 語法良田成就殿堂
+                      C++ 語法良田成就殿堂 & 傳說圖鑑
                     </h2>
                     <p className="text-xs text-slate-300">
-                      解鎖條件包含累積答對、連勝紀錄、資產、灌溉進度及烏龜培育！
+                      涵蓋常規農莊發展成就與 18 頂頂級 C++ 隱藏傳說榮譽！
                     </p>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-black text-emerald-300 shadow-inner">
-                    成就解鎖率：{unlockedCount} / {totalCount} ({progressPercentage}%)
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1.5 rounded-full text-xs font-black text-emerald-300 shadow-inner">
+                      🌾 常規成就：{standardUnlockedCount} / {standardTotalCount}
+                    </div>
+                    <div className="bg-purple-500/10 border border-purple-500/30 px-3.5 py-1.5 rounded-full text-xs font-black text-purple-300 shadow-inner">
+                      ✨ 隱藏傳說：{secretUnlockedCount} / {secretTotalCount}
+                    </div>
                   </div>
                 </div>
 
                 {/* PROGRESS BAR COMPONENT */}
                 <div className="mt-5 space-y-2">
-                  <div className="w-full bg-slate-950/80 rounded-full h-4 border border-emerald-500/20 overflow-hidden p-0.5 shadow-inner">
+                  <div className="w-full bg-slate-950 rounded-full h-4 border border-emerald-500/20 overflow-hidden p-0.5 shadow-inner">
                     <div 
-                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(16,185,129,0.5)]"
-                      style={{ width: `${progressPercentage}%` }}
+                      className="bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+                      style={{ width: `${totalProgressPercent}%` }}
                     />
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                    <span>🌱 初涉編譯</span>
+                    <span>🌱 綠意萌芽</span>
                     <span className="text-emerald-400 font-bold">
-                      {progressPercentage === 100 ? '🎉 完美解鎖全成就！' : `距離下個境界還差 ${totalCount - unlockedCount} 個成就`}
+                      總成就達成率 {totalProgressPercent}% ({totalUnlockedAll}/{totalAllAchievements})
                     </span>
-                    <span>👑 語法帝國至尊</span>
+                    <span>👑 現代 C++ 傳奇宗師</span>
                   </div>
                 </div>
               </div>
 
-              {/* ACHIEVEMENTS GRID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
-                {achievementsList.map(item => {
-                  const percent = Math.min(100, Math.round((item.currentValue / item.targetValue) * 100));
-                  return (
-                    <div 
-                      key={item.id} 
-                      id={`achievement-card-${item.id}`}
-                      className={`relative rounded-2xl p-5 border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between overflow-hidden shadow-sm ${
-                        item.isUnlocked 
-                          ? 'bg-gradient-to-br from-slate-900/90 to-[#112323]/90 border-emerald-500/30 text-white shadow-[0_4px_20px_rgba(16,185,129,0.1)]' 
-                          : 'bg-slate-950/90 border-slate-800/80 text-slate-400 opacity-75'
-                      }`}
-                    >
-                      {/* Badge / Icon top section */}
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${item.badgeColor} flex items-center justify-center text-3xl shadow-md shrink-0 ${
-                          !item.isUnlocked && 'grayscale opacity-40'
-                        }`}>
-                          {item.icon}
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className={`text-sm font-black font-display leading-tight tracking-wide ${
-                            item.isUnlocked ? 'text-emerald-300' : 'text-slate-400'
-                          }`}>
-                            {item.title}
-                          </h3>
-                          <p className="text-[11px] leading-relaxed text-slate-300">
-                            {item.description}
-                          </p>
-                        </div>
+              {/* ========================================================= */}
+              {/* SECTION 1: 🏆 傳說殿堂 (LEGENDARY HALL - UNLOCKED SECRETS) */}
+              {/* ========================================================= */}
+              {unlockedSecrets.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-lg">
+                        🏆
                       </div>
-
-                      {/* Progress tracking section at bottom */}
-                      <div className="space-y-2 mt-auto pt-2 border-t border-slate-800/50">
-                        <div className="flex justify-between text-[10px] font-mono">
-                          <span>{item.targetText}</span>
-                          <span className={item.isUnlocked ? "text-emerald-400 font-bold" : "text-amber-400"}>
-                            {item.currentValue} / {item.targetValue}
+                      <div>
+                        <h3 className="text-base font-black text-purple-300 flex items-center gap-2">
+                          傳說殿堂（已解鎖隱藏成就）
+                          <span className="text-xs font-mono font-normal text-purple-400 bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 rounded-full">
+                            {unlockedSecrets.length} 頂已揭曉
                           </span>
-                        </div>
-                        
-                        <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800/50">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-700 ${
-                              item.isUnlocked ? 'bg-emerald-500' : 'bg-amber-500'
-                            }`}
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-
-                        <div className="flex justify-between items-center pt-1">
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${
-                            item.isUnlocked 
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/20' 
-                              : 'bg-slate-800 text-slate-500'
-                          }`}>
-                            {item.isUnlocked ? '✓ 已解鎖' : '🔒 未解鎖'}
-                          </span>
-                          {!item.isUnlocked && (
-                            <span className="text-[9px] text-slate-500 font-mono">
-                              已完成 {percent}%
-                            </span>
-                          )}
-                        </div>
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          點擊卡片可放大查看詳細歷史、銘言與解鎖記錄
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
+                    {unlockedSecrets.map(({ def, record }) => {
+                      const rarityCfg = RARITY_CONFIG[def.rarity];
+                      return (
+                        <div
+                          key={def.id}
+                          onClick={() => {
+                            playSynthSound('click', isMuted);
+                            setViewingSecretDetail({ def, record });
+                          }}
+                          className={`group relative rounded-2xl p-5 border transition-all duration-300 hover:scale-[1.02] cursor-pointer flex flex-col justify-between overflow-hidden shadow-lg bg-gradient-to-br ${rarityCfg.gradient} ${rarityCfg.cardBorder} ${rarityCfg.glow}`}
+                        >
+                          {/* Top row: badge & rarity tag */}
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-2xl bg-slate-950/80 border border-white/10 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                                {def.badgeEmoji}
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-black text-white group-hover:text-amber-300 transition font-display">
+                                  {def.title}
+                                </h4>
+                                <span className={`inline-block text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded-full mt-1 ${rarityCfg.tagBg}`}>
+                                  ✦ {rarityCfg.label}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-xs text-slate-200 leading-relaxed font-medium mb-3">
+                            {def.description}
+                          </p>
+
+                          {/* Master Quote */}
+                          <blockquote className="text-[11px] text-slate-400 italic border-l-2 border-slate-700 pl-2.5 my-2 leading-relaxed">
+                            {def.quote}
+                          </blockquote>
+
+                          {/* Footer info: unlocked time & reward badges */}
+                          <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span>解鎖於 {record.unlockedAt.split(' ')[0]}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-400 font-bold">+{def.reward.coins}🪙</span>
+                              <span className="text-emerald-400 font-bold">+{def.reward.cabbages}🥬</span>
+                              <span className="text-sky-400 font-bold">+{def.reward.waterBuckets}🪣</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* SECTION 2: 🌾 常規良田成就 (STANDARD ACHIEVEMENTS) */}
+              {/* ========================================================= */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-lg">
+                      🌾
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-emerald-300 flex items-center gap-2">
+                        常規良田成就
+                        <span className="text-xs font-mono font-normal text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          {standardUnlockedCount} / {standardTotalCount}
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        基礎農業與 C++ 語法灌溉常規挑戰
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
+                  {achievementsList.map(item => {
+                    const percent = Math.min(100, Math.round((item.currentValue / item.targetValue) * 100));
+                    return (
+                      <div 
+                        key={item.id} 
+                        id={`achievement-card-${item.id}`}
+                        className={`relative rounded-2xl p-5 border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between overflow-hidden shadow-sm ${
+                          item.isUnlocked 
+                            ? 'bg-gradient-to-br from-slate-900/90 to-[#112323]/90 border-emerald-500/30 text-white shadow-[0_4px_20px_rgba(16,185,129,0.1)]' 
+                            : 'bg-slate-950/90 border-slate-800/80 text-slate-400 opacity-75'
+                        }`}
+                      >
+                        {/* Badge / Icon top section */}
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${item.badgeColor} flex items-center justify-center text-3xl shadow-md shrink-0 ${
+                            !item.isUnlocked && 'grayscale opacity-40'
+                          }`}>
+                            {item.icon}
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className={`text-sm font-black font-display leading-tight tracking-wide ${
+                              item.isUnlocked ? 'text-emerald-300' : 'text-slate-400'
+                            }`}>
+                              {item.title}
+                            </h3>
+                            <p className="text-[11px] leading-relaxed text-slate-300">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Progress tracking section at bottom */}
+                        <div className="space-y-2 mt-auto pt-2 border-t border-slate-800/50">
+                          <div className="flex justify-between text-[10px] font-mono">
+                            <span>{item.targetText}</span>
+                            <span className={item.isUnlocked ? "text-emerald-400 font-bold" : "text-amber-400"}>
+                              {item.currentValue} / {item.targetValue}
+                            </span>
+                          </div>
+                          
+                          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800/50">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-700 ${
+                                item.isUnlocked ? 'bg-emerald-500' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-center pt-1">
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${
+                              item.isUnlocked 
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/20' 
+                                : 'bg-slate-800 text-slate-500'
+                            }`}>
+                              {item.isUnlocked ? '✓ 已解鎖' : '🔒 未解鎖'}
+                            </span>
+                            {!item.isUnlocked && (
+                              <span className="text-[9px] text-slate-500 font-mono">
+                                已完成 {percent}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* ========================================================= */}
+              {/* SECTION 3: 🔒 探索中的隱藏成就 (SECRET ACHIEVEMENTS TO DISCOVER) */}
+              {/* ========================================================= */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-lg">
+                      🔒
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-slate-300 flex items-center gap-2">
+                        未解鎖隱藏成就（待探索）
+                        <span className="text-xs font-mono font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+                          {lockedSecrets.length} 頂隱藏中
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        世界上還存在著強大的 C++ 奇蹟……在良田中達到特定特殊條件後才會揭曉！
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {lockedSecrets.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 font-sans">
+                    {lockedSecrets.map(def => (
+                      <div
+                        key={def.id}
+                        className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between shadow-inner relative overflow-hidden group"
+                      >
+                        <div className="flex items-start gap-3.5 mb-3">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl text-slate-600 shrink-0">
+                            🔒
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-400 font-display">
+                              ??? 隱藏成就
+                            </h4>
+                            <span className="inline-block text-[9px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full mt-1">
+                              ✦ 神秘境界
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-500 leading-relaxed italic mb-3">
+                          「世界上還存在你尚未發現的 C++ 傳說……達成特殊條件後才會揭曉。」
+                        </p>
+
+                        <div className="pt-2 border-t border-slate-800/50 flex items-center justify-between text-[10px] font-mono text-slate-600">
+                          <span>狀態：尚未觸發</span>
+                          <span className="text-slate-500">🔒 秘密鎖定</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-purple-950/20 border border-purple-500/30 rounded-3xl p-6">
+                    <span className="text-4xl block mb-2">🎉</span>
+                    <h4 className="text-base font-black text-purple-300 font-display">
+                      不可思議！所有 18 項隱藏成就已全數解鎖！
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      你已經掌握了現代 C++ 與農莊良田的所有奧秘，堪稱傳奇！
+                    </p>
+                  </div>
+                )}
+              </div>
+
             </div>
           );
         })()}
@@ -4822,15 +5170,21 @@ if (authMode === 'register') {
       )}
 
       {/* ========================================================= */}
-      {/* 8.5. DAILY C++ CHALLENGE MODAL (每日限定挑戰視窗) */}
+      {/* 9. SECRET ACHIEVEMENT UNLOCK CELEBRATION MODAL */}
       {/* ========================================================= */}
-      <DailyChallengeModal
-        isOpen={isDailyChallengeOpen}
-        onClose={() => setIsDailyChallengeOpen(false)}
-        todayDateKey={todayDateKey}
-        dailyChallengeQuestion={dailyChallengeQuestion}
-        dailyChallengeState={gameState.dailyChallenge}
-        onCompleteChallenge={handleCompleteDailyChallenge}
+      <SecretAchievementUnlockModal
+        achievement={newlyUnlockedSecret}
+        onClose={() => setNewlyUnlockedSecret(null)}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
+      {/* 10. SECRET ACHIEVEMENT DETAIL / LORE MODAL */}
+      {/* ========================================================= */}
+      <SecretAchievementDetailModal
+        detail={viewingSecretDetail}
+        onClose={() => setViewingSecretDetail(null)}
         playSynthSound={playSynthSound}
         isMuted={isMuted}
       />
