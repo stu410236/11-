@@ -1,5 +1,169 @@
 import { CPlusPlusCard, FieldPlot } from '../types';
 
+export interface ChapterMeta {
+  chapter: number;
+  startId: number;
+  endId: number;
+  topic: string;
+  subTitle: string;
+  stage: '高中核心' | '高中進階' | '延伸／競賽入門' | '自學延伸';
+  emoji: string;
+  keyConcepts: string;
+}
+
+export const CHAPTERS_DATA: ChapterMeta[] = [
+  {
+    chapter: 1,
+    startId: 1,
+    endId: 10,
+    topic: 'C++ 入門與輸出',
+    subTitle: '認識 C++ 核心架構、標頭檔與標準輸出串流',
+    stage: '高中核心',
+    emoji: '🌱',
+    keyConcepts: '#include <iostream>、main()、cout、endl、;、基本程式結構'
+  },
+  {
+    chapter: 2,
+    startId: 11,
+    endId: 20,
+    topic: '變數與資料型別',
+    subTitle: '變數宣告、記憶體空間、基本型別與常數保護',
+    stage: '高中核心',
+    emoji: '📦',
+    keyConcepts: 'int、double、float、char、bool、變數宣告、初始化、const'
+  },
+  {
+    chapter: 3,
+    startId: 21,
+    endId: 30,
+    topic: '輸入與基本運算',
+    subTitle: '標準鍵盤輸入、四則運算、取餘數、遞增遞減與型別轉換',
+    stage: '高中核心',
+    emoji: '⌨️',
+    keyConcepts: 'cin、+ - * / %、指定運算、遞增遞減、型別轉換基礎'
+  },
+  {
+    chapter: 4,
+    startId: 31,
+    endId: 40,
+    topic: '條件判斷',
+    subTitle: '單雙分支決策、關係比較與複合邏輯運算子',
+    stage: '高中核心',
+    emoji: '🚦',
+    keyConcepts: 'if、else、else if、== != > < >= <=、&& || !'
+  },
+  {
+    chapter: 5,
+    startId: 41,
+    endId: 50,
+    topic: '多重選擇',
+    subTitle: '巢狀條件判斷、switch 分支、break 防穿透與三元運算',
+    stage: '高中核心',
+    emoji: '🔀',
+    keyConcepts: '巢狀 if、switch、case、break、條件綜合題'
+  },
+  {
+    chapter: 6,
+    startId: 51,
+    endId: 60,
+    topic: 'while 迴圈',
+    subTitle: '前測試重複結構、計數器累加、哨兵結束條件與位數拆解',
+    stage: '高中核心',
+    emoji: '🔄',
+    keyConcepts: 'while、計數器、累加、輸入直到條件成立'
+  },
+  {
+    chapter: 7,
+    startId: 61,
+    endId: 70,
+    topic: 'for 迴圈',
+    subTitle: '固定次數走訪、正反向計數、階乘計算、倍數統計與極值',
+    stage: '高中核心',
+    emoji: '🚜',
+    keyConcepts: 'for、正向／反向迴圈、累加、階乘、倍數'
+  },
+  {
+    chapter: 8,
+    startId: 71,
+    endId: 80,
+    topic: '迴圈進階',
+    subTitle: 'do-while 後測試、break/continue 控制、雙重迴圈與幾何圖形',
+    stage: '高中核心',
+    emoji: '♻️',
+    keyConcepts: 'do while、巢狀迴圈、break、continue、九九乘法表、圖形輸出'
+  },
+  {
+    chapter: 9,
+    startId: 81,
+    endId: 90,
+    topic: '一維陣列',
+    subTitle: '靜態陣列宣告、下標存取、走訪加總、極值定位與陣列反轉',
+    stage: '高中核心',
+    emoji: '🌾',
+    keyConcepts: '宣告陣列、索引、走訪、總和、最大最小、平均值'
+  },
+  {
+    chapter: 10,
+    startId: 91,
+    endId: 100,
+    topic: '二維陣列',
+    subTitle: '矩陣維度配置、行列走訪、對角線處理與相鄰地塊檢測',
+    stage: '高中核心',
+    emoji: '🗺️',
+    keyConcepts: '矩陣、列／欄走訪、巢狀迴圈與陣列綜合'
+  },
+  {
+    chapter: 11,
+    startId: 101,
+    endId: 110,
+    topic: '字串',
+    subTitle: 'std::string 類別、長度檢索、字元處理、字串比較與子字串',
+    stage: '高中進階',
+    emoji: '🔤',
+    keyConcepts: 'string、length() / size()、索引、字元處理、字串比較、拼接'
+  },
+  {
+    chapter: 12,
+    startId: 111,
+    endId: 120,
+    topic: '函式',
+    subTitle: '自訂副程式宣告、參數傳遞、return 回傳值、作用域與模組化',
+    stage: '高中進階',
+    emoji: '🧩',
+    keyConcepts: '函式宣告、參數、return、區域變數、傳值、函式拆解問題'
+  },
+  {
+    chapter: 13,
+    startId: 121,
+    endId: 130,
+    topic: '演算法入門',
+    subTitle: '線性搜尋、兩數交換、排序概念、std::sort、極值與統計',
+    stage: '延伸／競賽入門',
+    emoji: '🧠',
+    keyConcepts: '線性搜尋、交換、排序概念、sort()、最大最小、計數統計'
+  },
+  {
+    chapter: 14,
+    startId: 131,
+    endId: 140,
+    topic: 'STL 與資料結構',
+    subTitle: '動態陣列 vector、push_back、range-for、sort 與 pair 容器',
+    stage: '自學延伸',
+    emoji: '📚',
+    keyConcepts: 'vector、range-based for、push_back()、size()、sort()、pair'
+  },
+  {
+    chapter: 15,
+    startId: 141,
+    endId: 150,
+    topic: '真正的 C++ 延伸',
+    subTitle: '參照 reference、指標基礎、結構體 struct、類別 class、auto 與 lambda',
+    stage: '自學延伸',
+    emoji: '🚀',
+    keyConcepts: 'reference、pointer 基礎、struct、class、auto、lambda、map / set 等精選'
+  }
+];
+
 const CROPS = [
   { name: '大豆', emoji: '🫛' },
   { name: '高麗菜', emoji: '🥬' },
@@ -21,24 +185,20 @@ const CROPS = [
   { name: '葡萄', emoji: '🍇' }
 ];
 
+export const getChapterForField = (fieldId: number): ChapterMeta => {
+  const found = CHAPTERS_DATA.find(c => fieldId >= c.startId && fieldId <= c.endId);
+  return found || CHAPTERS_DATA[0];
+};
+
 export const FIELD_PLOTS_DATA: FieldPlot[] = Array.from({ length: 150 }, (_, i) => {
   const id = i + 1;
   const crop = CROPS[i % CROPS.length];
-  let levelName = '基礎語法';
-  if (id > 15 && id <= 30) levelName = '運算子與選擇';
-  else if (id > 30 && id <= 45) levelName = '迴圈控制';
-  else if (id > 45 && id <= 60) levelName = '函式與作用域';
-  else if (id > 60 && id <= 75) levelName = '陣列與字串';
-  else if (id > 75 && id <= 90) levelName = '指標、參照與結構';
-  else if (id > 90 && id <= 105) levelName = '類別與物件導向';
-  else if (id > 105 && id <= 120) levelName = '繼承與多型';
-  else if (id > 120 && id <= 135) levelName = 'STL容器管理';
-  else if (id > 135) levelName = '樣板與現代C++';
+  const chapter = getChapterForField(id);
 
   return {
     id,
-    name: `第 ${id} 區良田 (${levelName})`,
-    description: `挑戰第 ${id} 區的 C++ 專業編譯灌溉，收成 ${crop.name}。難度隨編號遞增。`,
+    name: `第 ${id} 區良田 (${chapter.emoji} ${chapter.topic})`,
+    description: `【${chapter.stage}】第 ${chapter.chapter} 章《${chapter.topic}》第 ${id - chapter.startId + 1}/10 關。灌溉收成【${crop.name}】。`,
     cropName: crop.name,
     isIrrigated: false,
     bestStreak: 0,
@@ -49,1260 +209,1807 @@ export const FIELD_PLOTS_DATA: FieldPlot[] = Array.from({ length: 150 }, (_, i) 
 // Helper to generate a unique question for a given fieldId and cardIndex
 const getCardForFieldAndIndex = (fieldId: number, cardIndex: number): CPlusPlusCard => {
   const id = `f${fieldId}_${cardIndex}`;
-  
-  if (fieldId <= 15) {
-    // ==========================================
-    // Category 1: Basics & I/O (Levels 1 - 15)
-    // ==========================================
+  const chapter = getChapterForField(fieldId);
+  const subLevel = fieldId - chapter.startId + 1; // 1 to 10 within the chapter
+  const prefix = `[第${chapter.chapter}章 ${chapter.topic}] #${fieldId}`;
+
+  // =========================================================================
+  // CHAPTER 1: 🌱 C++ 入門與輸出 (Levels 1 ～ 10) [高中核心]
+  // =========================================================================
+  if (fieldId >= 1 && fieldId <= 10) {
     switch (cardIndex) {
       case 1: {
-        const headers = ['iostream', 'cmath', 'string', 'iomanip', 'fstream', 'vector', 'algorithm', 'chrono', 'limits', 'typeinfo', 'sstream', 'complex', 'random', 'thread', 'mutex'];
-        const h = headers[(fieldId - 1) % headers.length];
+        const streamHeader = subLevel % 2 === 1 ? 'iostream' : 'iomanip';
         return {
           id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 引入核心標頭檔`,
-          chineseDescription: `為了在此良田建立 C++ 程式，請引入支援本關功能（包含相關運算或串流）的標準標頭檔：<${h}>。`,
+          title: `${prefix} 引入標準輸入輸出標頭檔`,
+          chineseDescription: `在 C++ 程式最頂端，我們必須使用 #include 預處理指令引入標準函式庫。<${streamHeader}> 能提供標準輸出入與格式化支援。請填入標頭檔名稱。`,
           codeTemplate: `#include <__________>`,
-          expectedAnswer: h,
-          hint: `直接填寫該標頭檔的名稱：${h}。`,
-          explanation: `#include <${h}> 是引入標準 C++ ${h} 宣告的基本指令，用於解鎖此函式庫所提供的各項先進編譯功能。`
+          expectedAnswer: streamHeader,
+          hint: `標準串流為 iostream，格式化控制為 iomanip。本題請填：${streamHeader}`,
+          explanation: `#include <${streamHeader}> 是 C++ 專案最關鍵的起點，提供 std::cout 等物件宣告。`
         };
       }
       case 2: {
-        const hasArgs = fieldId >= 8;
         return {
           id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 程式執行進入點`,
-          chineseDescription: `請宣告標準 C++ 程式執行必備的進入點 main 函式。${hasArgs ? '本關要求宣告完整的命令列引數：int main(int argc, char* argv[])。' : '本關要求標準簡易宣告。'}`,
-          codeTemplate: `______ main(${hasArgs ? 'int argc, char* argv[]' : ''}) {\n  return 0;\n}`,
+          title: `${prefix} 主函式進入點 main 回傳型別`,
+          chineseDescription: `所有 C++ 程式執行時皆由 main 函式開始。標準 C++ 規範 main 函式必須回傳什麼整數型態？`,
+          codeTemplate: `______ main() {\n  // 良田程式啟動\n  return 0;\n}`,
           expectedAnswer: 'int',
-          hint: '程式入口函式 main 的回傳型態固定為整數型態。',
-          explanation: 'C++ 標準規範 main 函式之回傳值必須為 int。回傳 0 指示作業系統此程式已成功、無錯誤地執行完畢。'
+          hint: '整數型態關鍵字（3 個英文字母）。',
+          explanation: 'main 函式在 C++ 標準中固定回傳 int 型態，回傳 0 代表正常執行完畢退出。'
         };
       }
       case 3: {
-        const useCerr = fieldId % 3 === 0;
-        const useClog = fieldId % 3 === 1;
-        const streamObj = useCerr ? 'cerr' : (useClog ? 'clog' : 'cout');
+        const useStream = subLevel > 5 ? 'std::cout' : 'cout';
         return {
           id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 標準輸出流載體`,
-          chineseDescription: `請填寫 C++ 用來將訊息輸出至${useCerr ? '標準錯誤設備（cerr，不具快取）' : (useClog ? '標準日誌設備（clog，具快取）' : '標準螢幕終端（cout）')}的串流物件。`,
-          codeTemplate: `std::______ << "良田作物等級: ${fieldId}\\n";`,
-          expectedAnswer: streamObj,
-          hint: `標準輸出為 cout，標準錯誤為 cerr，日誌為 clog。本題應填入：${streamObj}。`,
-          explanation: `std::${streamObj} 是標準命名空間 std 中的一個預定義輸出串流載體，藉由運算子鏈結將資料推入輸出裝置中。`
+          title: `${prefix} 標準輸出串流物件`,
+          chineseDescription: `請填寫 C++ 用來將訊息文字輸出至終端機螢幕的標準輸出串流物件名稱（Console Output）。`,
+          codeTemplate: `${subLevel > 5 ? 'std::' : ''}______ << "歡迎來到第 ${fieldId} 區良田！";`,
+          expectedAnswer: 'cout',
+          hint: 'Console Output 的簡寫。',
+          explanation: 'cout 是 C++ 最常用的標準輸出串流，搭配 << 運算子可輸出字串與數值。'
         };
       }
       case 4: {
-        const spaceName = `Farm_Space_${fieldId}`;
-        const isCustom = fieldId >= 9;
         return {
           id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 命名空間與解析`,
-          chineseDescription: `宣告預設使用 C++ ${isCustom ? `自定義的空間 ${spaceName}` : '標準 std'} 空間，使程式碼可以直接調用該空間中的成員。`,
-          codeTemplate: `using _________ ${isCustom ? spaceName : 'std'};`,
-          expectedAnswer: 'namespace',
-          hint: '命名空間的英文關鍵字（單數型態）。',
-          explanation: `using namespace 關鍵字宣告可以使編譯器在當前作用域內自動比對該命名空間中的符號，避免頻繁撰寫 :: 運算子。`
-        };
-      }
-      case 5: {
-        return {
-          id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 串流方向操作符`,
-          chineseDescription: `填入適當的串流插入運算子（Stream Insertion Operator），將作物灌溉百分比 ${fieldId * 5}% 送入標準輸出中。`,
-          codeTemplate: `std::cout ______ "灌溉率: " << ${fieldId * 5} << "%\\n";`,
+          title: `${prefix} 串流插入運算子`,
+          chineseDescription: `請填入正確的串流插入運算子（Stream Insertion Operator），將右側字串送入 cout 輸出。`,
+          codeTemplate: `std::cout ______ "C++ 程式設計啟航\\n";`,
           expectedAnswer: '<<',
           hint: '向左的雙角括弧。',
-          explanation: '<< 是 C++ 專屬的串流插入運算子，能將右側的資料以二進制或格式化文字形式流向左側的輸出流對象。'
+          explanation: '<< 是串流插入運算子，代表資料流向左側的輸出串流。'
+        };
+      }
+      case 5: {
+        const useEndl = subLevel % 2 === 1;
+        return {
+          id, fieldId,
+          title: `${prefix} 換行控制與串流輸出`,
+          chineseDescription: useEndl 
+            ? `請填寫標準命名空間中代表換行並刷新緩衝區的操縱子 endl。`
+            : `請填寫跳脫字元代表換行符號（Newline）。`,
+          codeTemplate: useEndl 
+            ? `std::cout << "土壤編號: ${fieldId}" << std::______;`
+            : `std::cout << "種植紀錄" << '______';`,
+          expectedAnswer: useEndl ? 'endl' : '\\n',
+          hint: useEndl ? 'End Line 的縮寫。' : '反斜線加上 n。',
+          explanation: useEndl 
+            ? 'std::endl 會輸出換行並強制執行 flush 刷新輸出緩衝區。'
+            : '\\n 是換行跳脫字元，比 endl 更具執行效能。'
         };
       }
       case 6: {
-        const varName = `moisture_target_${fieldId}`;
         return {
           id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 讀取標準輸入`,
-          chineseDescription: `請利用 C++ 的標準輸入串流物件，將鍵盤輸入的土壤濕度整數值載入變數 ${varName} 中。`,
-          codeTemplate: `int ${varName};\nstd::______ >> ${varName};`,
-          expectedAnswer: 'cin',
-          hint: 'Console Input 的縮寫。',
-          explanation: 'std::cin 代表標準輸入流，通常與提取運算子 >> 配合使用，將輸入緩衝區的數據反序列化為指定的變數型態。'
-        };
-      }
-      case 7: {
-        return {
-          id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 串流讀取運算子`,
-          chineseDescription: `請填寫 C++ 串流提取運算子（Stream Extraction Operator），將輸入資料傳送給右側變數。`,
-          codeTemplate: `int flow_rate;\nstd::cin ______ flow_rate;`,
-          expectedAnswer: '>>',
-          hint: '向右的雙角括弧。',
-          explanation: '>> 運算子將輸入串流中的內容提取、轉換，並賦予其右側指定的變數。'
-        };
-      }
-      case 8: {
-        const size = fieldId > 10 ? 'long long' : 'int';
-        const val = fieldId * 10000;
-        return {
-          id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 整數型態變數宣告`,
-          chineseDescription: `請宣告一個名為 seed_count_${fieldId} 的整數型態變數（${fieldId > 10 ? '為避免數值溢位，請使用 64 位元長整數 long long' : '一般 32 位元有號整數 int'}），並將初值設為 ${val}。`,
-          codeTemplate: `______ seed_count_${fieldId} = ${val};`,
-          expectedAnswer: size,
-          hint: `本關數值為 ${val}，請使用指定的型態關鍵字：${size}。`,
-          explanation: `${size} 是 C++ 常用的基礎整數型態，在 32/64 位元架構中佔用對應的記憶體空間，用以安全存放計數。`
-        };
-      }
-      case 9: {
-        const isDouble = fieldId % 2 === 0;
-        const val = (fieldId * 1.33).toFixed(3);
-        return {
-          id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 浮點數型態精密指派`,
-          chineseDescription: `宣告一個精確的小數變數 nutrition_index_${fieldId}，指派其初始值為 ${val}。本關要求使用：${isDouble ? '雙精度浮點數 double' : '單精度浮點數 float'}。`,
-          codeTemplate: `______ nutrition_index_${fieldId} = ${val}${isDouble ? '' : 'f'};`,
-          expectedAnswer: isDouble ? 'double' : 'float',
-          hint: `指定使用 ${isDouble ? 'double' : 'float'} 關鍵字。`,
-          explanation: `double 具有 64 位元雙精度，而 float 具有 32 位元單精度。在科學計算或農田模擬中，通常更傾向使用 double。`
-        };
-      }
-      case 10: {
-        return {
-          id, fieldId,
-          title: `[LV.1 基礎] #${fieldId} 串流控制與分號結尾`,
-          chineseDescription: `請補齊該行程式碼，使 C++ 的敘述句能正確結束，並在終端機中正確換行（不刷新快取）。`,
-          codeTemplate: `std::cout << "系統初始化完畢... #${fieldId}" << '\\n'______`,
+          title: `${prefix} 結尾分號終止符`,
+          chineseDescription: `每一個完整的 C++ 執行敘述句結尾，都必須加上什麼標點符號作為語句結束？`,
+          codeTemplate: `std::cout << "作物狀態良好"______`,
           expectedAnswer: ';',
-          hint: '每一個完整的 C++ 執行敘述句都必須以分號結尾。',
-          explanation: '分號 ; 在 C++ 中代表一條獨立表達式敘述句的終止符，不可遺漏，否則會產生語法解析錯誤（Syntax Error）。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 30) {
-    // ==========================================
-    // Category 2: Operators & Decision Making (Levels 16 - 30)
-    // ==========================================
-    const step = fieldId - 15; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const val1 = step * 10 + 7;
-        const val2 = 3;
-        const ans = val1 % val2;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 取餘數算術`,
-          chineseDescription: `利用取餘數（Modulo）運算子，求出整數 ${val1} 除以 ${val2} 的餘數並賦予變數 rem_${fieldId}（餘數應為 ${ans}）。`,
-          codeTemplate: `int rem_${fieldId} = ${val1} ______ ${val2};`,
-          expectedAnswer: '%',
-          hint: '百分比符號 %。',
-          explanation: '在 C++ 中，% 為取餘數（modulo）運算子，僅能用於兩整數之間，返回除法後的整數餘值。'
-        };
-      }
-      case 2: {
-        const isPrefix = step % 2 === 0;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 變數高效遞增`,
-          chineseDescription: `請使用 ${isPrefix ? '前置遞增（Prefix）' : '後置遞增（Postfix）'} 運算子，將變數 current_turn_${fieldId} 增加 1。`,
-          codeTemplate: isPrefix ? `______current_turn_${fieldId};` : `current_turn_${fieldId}______;`,
-          expectedAnswer: '++',
-          hint: '連續兩個加號。',
-          explanation: '++ 運算子用於將變數值加 1。前置 ++ 會先加 1 再回傳，後置 ++ 會先回傳原值再加 1。'
-        };
-      }
-      case 3: {
-        const valLimit = step * 5;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 關係邏輯比較`,
-          chineseDescription: `寫出邏輯關係運算子，用以判斷目前的田地蓄水量 water_${fieldId} 是否「小於或等於」安全線 ${valLimit}。`,
-          codeTemplate: `bool is_danger = (water_${fieldId} ______ ${valLimit});`,
-          expectedAnswer: '<=',
-          hint: '小於號後面緊接等號。',
-          explanation: '<= 關係運算子在左側值小於或等於右側值時，會回傳 bool 常數 true，否則回傳 false。'
-        };
-      }
-      case 4: {
-        const valLimit = step * 15;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 邏輯與 AND 串接`,
-          chineseDescription: `當目前的日光強度 sun 大於 ${valLimit}，「並且」土壤濕度 wet 也大於 50 時，系統才判定為良好。`,
-          codeTemplate: `bool optimal = (sun > ${valLimit}) ______ (wet > 50);`,
-          expectedAnswer: '&&',
-          hint: '兩個 And 符號串連。',
-          explanation: '&& 是邏輯與（Logical AND）運算子。唯有當兩端條件皆評估為 true 時，整條表達式才成立。'
-        };
-      }
-      case 5: {
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 邏輯或 OR 串接`,
-          chineseDescription: `當作物面臨害蟲威脅 insect == true，「或者」缺水狀態 dry == true 時，啟動警告提示。`,
-          codeTemplate: `bool warning = (insect) ______ (dry);`,
-          expectedAnswer: '||',
-          hint: '兩條垂直管線符號。',
-          explanation: '|| 是邏輯或（Logical OR）運算子。只要左右任一條件為 true，整體表達式即為 true。'
-        };
-      }
-      case 6: {
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 邏輯非否定句`,
-          chineseDescription: `使用「邏輯非（Logical NOT）」運算子，將 bool 變數 is_frozen_${fieldId} 的真假值反轉。`,
-          codeTemplate: `bool can_sow = ______is_frozen_${fieldId};`,
-          expectedAnswer: '!',
-          hint: '驚嘆號。',
-          explanation: '! 運算子是單目運算子，可將 true 轉換為 false，或將 false 轉換為 true。'
+          hint: '英文分號。',
+          explanation: '分號 ; 在 C++ 中代表一條敘述句的終止，遺漏會導致語法編譯錯誤。'
         };
       }
       case 7: {
         return {
           id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 條件決策結構 if`,
-          chineseDescription: `當變數 leaf_color_${fieldId} 的數值等於 0 時，執行施肥指令。請寫出決策控制關鍵字。`,
-          codeTemplate: `______ (leaf_color_${fieldId} == 0) {\n  apply_fertilizer();\n}`,
-          expectedAnswer: 'if',
-          hint: '如果。',
-          explanation: 'if 關鍵字引導 C++ 條件判斷主體，當括弧內部的邏輯表達式結果為 true 時，執行緊隨的花括弧代碼塊。'
+          title: `${prefix} 引入 std 命名空間`,
+          chineseDescription: `為了在程式中直接使用 cout、endl 而不需每次前綴 std::，我們可以在開頭宣告使用哪個命名空間？`,
+          codeTemplate: `using namespace ______;`,
+          expectedAnswer: 'std',
+          hint: '標準（Standard）庫縮寫。',
+          explanation: 'using namespace std; 將標準庫的名稱匯入全域範疇，適合初學者學習使用。'
         };
       }
       case 8: {
         return {
           id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 雙向分支機制 else`,
-          chineseDescription: `若 if 內部的濕度條件不滿足，則在預設的分支區塊內執行 wait_one_day()。`,
-          codeTemplate: `if (moisture > 40) {\n  harvest();\n} ______ {\n  wait_one_day();\n}`,
-          expectedAnswer: 'else',
-          hint: '否則。',
-          explanation: 'else 關鍵字用以界定 if 條件判定為 false 時所應執行的備用程式碼路徑。'
-        };
-      }
-      case 9: {
-        const targetType = (step % 4) + 1;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 多重判定開關 switch`,
-          chineseDescription: `以 switch 結構判斷變數 code_${fieldId}，當其數值符合 case ${targetType} 時，觸發相應的特殊灌溉演算法。`,
-          codeTemplate: `______ (code_${fieldId}) {\n  case ${targetType}:\n    special_irrigate();\n    break;\n}`,
-          expectedAnswer: 'switch',
-          hint: '開關、切換。',
-          explanation: 'switch 關鍵字會評估一個整數或列舉變數，並將程式控制權直接轉移至匹配的 case 標記標籤中，提昇多分支效率。'
-        };
-      }
-      case 10: {
-        const valA = step * 4;
-        const valB = step * 2 + 1;
-        return {
-          id, fieldId,
-          title: `[LV.2 運算子] #${fieldId} 簡潔三元條件賦值`,
-          chineseDescription: `利用三元運算子（Ternary Operator），若 condition 成立則賦予 ${valA}，否則賦予 ${valB}。`,
-          codeTemplate: `int result = (condition) ______ ${valA} : ${valB};`,
-          expectedAnswer: '?',
-          hint: '問號。',
-          explanation: '三元運算子 條件 ? 值1 : 值2 是 C++ 唯一的三目運算子，能在單行中依據布林條件安全指派不同的數值。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 45) {
-    // ==========================================
-    // Category 3: Loops & Iteration (Levels 31 - 45)
-    // ==========================================
-    const step = fieldId - 30; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const limit = step * 4 + 10;
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 基礎 for 迴圈`,
-          chineseDescription: `請撰寫一個從 i = 0 執行到 i < ${limit} 且每次遞增 1 的迴圈控制項。`,
-          codeTemplate: `______ (int i = 0; i < ${limit}; i++) {\n  add_water(i);\n}`,
-          expectedAnswer: 'for',
-          hint: '為、針對。',
-          explanation: 'for 迴圈在結構中內置了「初始化」、「條件判斷」與「步進修改」，非常適用於已知迭代次數的結構性循環。'
-        };
-      }
-      case 2: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 條件 while 迴圈`,
-          chineseDescription: `只要目前的 pH 值 ph_level_${fieldId} 大於 7，就持續加入酸性調和劑。`,
-          codeTemplate: `______ (ph_level_${fieldId} > 7) {\n  add_acid_drop();\n}`,
-          expectedAnswer: 'while',
-          hint: '當...的時候。',
-          explanation: 'while 迴圈在每次執行前都會評估條件，若為 true 則執行內部陳述語句，適合用於未知次數的事件驅動迴圈。'
-        };
-      }
-      case 3: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 最少執行 do-while`,
-          chineseDescription: `保證至少執行一次檢測 analyze_moisture()，若 is_unstable 為真則繼續進行迴圈。`,
-          codeTemplate: `______ {\n  analyze_moisture();\n} while (is_unstable);`,
-          expectedAnswer: 'do',
-          hint: '做。',
-          explanation: 'do-while 迴圈與 while 迴圈最大的區別在於：它會先執行一次迴圈本體，然後才在結尾處評估條件。'
-        };
-      }
-      case 4: {
-        const trigger = step * 5;
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 迴圈強制中斷 break`,
-          chineseDescription: `在尋找目標作物的過程中，若 index 等於 ${trigger}，請立刻中斷並跳出整層迴圈。`,
-          codeTemplate: `for (int i = 0; i < 100; i++) {\n  if (i == ${trigger}) ______;\n  check_soil(i);\n}`,
-          expectedAnswer: 'break',
-          hint: '破壞、中斷。',
-          explanation: 'break 指令能立刻無條件跳出最內層的 for, while 或 switch 結構，將程式計數器移到迴圈外第一行。'
-        };
-      }
-      case 5: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 跳過疊代 continue`,
-          chineseDescription: `若作物狀態處於休眠（is_dormant_${fieldId} == true），請跳過本輪後續操作，直接進入下一輪疊代。`,
-          codeTemplate: `for (int i = 0; i < 30; i++) {\n  if (is_dormant_${fieldId}) ______;\n  apply_nutrients(i);\n}`,
-          expectedAnswer: 'continue',
-          hint: '繼續。',
-          explanation: 'continue 關鍵字用以立刻中止目前的迭代，忽略剩餘的語句，直接跳至迴圈更新表達式並準備下一輪判定。'
-        };
-      }
-      case 6: {
-        const varList = `crop_weights_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 範圍型 for 迴圈`,
-          chineseDescription: `請填入 C++11 引進的範圍型 for 迴圈（Range-based for loop）符號，用以唯讀遍歷容器 ${varList} 中的每個元素。`,
-          codeTemplate: `for (const int weight ______ ${varList}) {\n  sum_weights(weight);\n}`,
-          expectedAnswer: ':',
-          hint: '冒號。',
-          explanation: '在範圍型 for 迴圈中，冒號 : 的左右兩側分別代表「取出元素的變數宣告」與「可遍歷的容器對象」，語意極為精煉。'
-        };
-      }
-      case 7: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 疊代器自增更新`,
-          chineseDescription: `在標準 while 迭代中，為了避免造成農田系統當機，必須在每輪結尾處對計數器 i 進行自增更新。`,
-          codeTemplate: `int i = 0;\nwhile (i < ${step * 2 + 5}) {\n  irrigate_plot(i);\n  i______;\n}`,
-          expectedAnswer: '++',
-          hint: '加加。',
-          explanation: '若遺漏迴圈控制變數的更新操作（如 i++），迴圈條件將永遠為真，進而造成記憶體鎖死或系統無限當機的嚴重災難。'
-        };
-      }
-      case 8: {
-        const gridRows = step + 2;
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 二維矩陣巢狀迴圈`,
-          chineseDescription: `請建立巢狀迴圈（Nested Loop）來拜訪 ${gridRows} x 5 的二維網格。`,
-          codeTemplate: `for (int r = 0; r < ${gridRows}; r++) {\n  ______ (int c = 0; c < 5; c++) {\n    fertilize(r, c);\n  }\n}`,
-          expectedAnswer: 'for',
-          hint: '內層也是一個 for 迴圈。',
-          explanation: '巢狀迴圈最常用於處理多維空間。內層迴圈在每次外層迴圈執行一輪時，會完整地重複執行其規定的全部次數。'
-        };
-      }
-      case 9: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 迴圈持續增益指派`,
-          chineseDescription: `請使用簡寫算術指派符，將每輪收成的值 weight 累加至 total_harvest_${fieldId} 變數中。`,
-          codeTemplate: `for (int weight : crops) {\n  total_harvest_${fieldId} ______ weight;\n}`,
-          expectedAnswer: '+=',
-          hint: '加號與等號。',
-          explanation: '+= 是複合賦值運算子，x += y 等價於 x = x + y，能免去重寫變數名的繁瑣，並常獲得編譯器優化。'
-        };
-      }
-      case 10: {
-        return {
-          id, fieldId,
-          title: `[LV.3 迴圈] #${fieldId} 無限迴圈與布林控制`,
-          chineseDescription: `在某些背景服務中，我們會故意使用布林常數建立一個永不終止的無限迴圈。`,
-          codeTemplate: `while (______) {\n  monitor_water_temperature();\n  if (system_shutdown) break;\n}`,
-          expectedAnswer: 'true',
-          hint: '代表「真」的布林字面值。',
-          explanation: 'while (true) 或 for (;;) 會建立一個無條件限制的無限迴圈，程式必須在內部藉由 break 或 return 主動退出。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 60) {
-    // ==========================================
-    // Category 4: Functions & Scope (Levels 46 - 60)
-    // ==========================================
-    const step = fieldId - 45; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const funcName = `monitor_field_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 空白無回傳值型態`,
-          chineseDescription: `宣告一個不需回傳任何運算結果、純粹執行列印任務的函式 ${funcName}。`,
-          codeTemplate: `______ ${funcName}(int status) {\n  std::cout << "狀態: " << status;\n}`,
-          expectedAnswer: 'void',
-          hint: '空白、無。',
-          explanation: 'void 關鍵字用於指示函式不提供任何返回值。調用該類函式時，無法將其賦值給任何變數。'
-        };
-      }
-      case 2: {
-        const val = step * 10;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 數值回傳關鍵字`,
-          chineseDescription: `在計算作物預期產量的函式中，回傳最終乘積結果 ${val}。`,
-          codeTemplate: `int calculate_yield() {\n  int base = ${val};\n  ______ base;\n}`,
-          expectedAnswer: 'return',
-          hint: '返回、回傳。',
-          explanation: 'return 語句終止當前函式的執行，並將控制權與選定的數值交還給原調用者。'
-        };
-      }
-      case 3: {
-        const varName = `moisture_ref_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 引用傳遞 (Pass by Ref)`,
-          chineseDescription: `在函式參數中，使用引用傳遞（Pass by Reference），使函式內部能直接修改外部原變數的值。`,
-          codeTemplate: `void adjust_water(int ______ ${varName}) {\n  ${varName} += 50;\n}`,
-          expectedAnswer: '&',
-          hint: '取地址 / 引用符號（And 鍵）。',
-          explanation: '使用 & 符號宣告引用參數，函式便會直接獲得外部實參的記憶體別名，能省去複製開銷並允許原地修改數值。'
-        };
-      }
-      case 4: {
-        const dVal = step + 5;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 預設參數指派`,
-          chineseDescription: `在 C++ 函式原型中設定預設參數值（Default Parameter），若調用者未給定參數，則預設為 ${dVal}。`,
-          codeTemplate: `void apply_chemical(int amount ______ ${dVal});`,
-          expectedAnswer: '=',
-          hint: '等號。',
-          explanation: '在函式宣告中使用等號 = 給定預設值。若調用者調用時省略此參數，編譯器會自動為其補上預設常數。'
-        };
-      }
-      case 5: {
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 高效內聯 inline 宣告`,
-          chineseDescription: `請填寫建議編譯器將此極短函式就地展開（Inline Expansion）的關鍵字，用以省去調用棧幀（Stack Frame）開銷。`,
-          codeTemplate: `______ double get_ratio(double a) {\n  return a * 1.05;\n}`,
-          expectedAnswer: 'inline',
-          hint: '內聯。',
-          explanation: 'inline 關鍵字請求編譯器將函式呼叫點直接替換為其代碼體，減少函數調用的壓棧、出棧額外CPU開銷。'
-        };
-      }
-      case 6: {
-        const val = step * 3;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 靜態局部變數 static`,
-          chineseDescription: `宣告一個局部靜態變數（Static Local Variable），使其在函式結束時不會消亡，能保留上一次調用的數值。`,
-          codeTemplate: `int count_calls() {\n  ______ int total_count = 0;\n  total_count++;\n  return total_count;\n}`,
-          expectedAnswer: 'static',
-          hint: '靜態的。',
-          explanation: 'static 局部變數生命週期貫穿整個程式運行，但作用域僅限於函數內部，只會初始化一次，能記錄調用歷史。'
-        };
-      }
-      case 7: {
-        const vName = `input_config_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 常數參數唯讀保護`,
-          chineseDescription: `為避免大物件在引用傳遞時被惡意修改，請加上適當的修飾字，將其實施唯讀（Read-Only）保護。`,
-          codeTemplate: `void log_config(______ string& ${vName}) {\n  cout << ${vName};\n}`,
-          expectedAnswer: 'const',
-          hint: '常數。',
-          explanation: 'const 修飾引用參數保證了實參在傳遞時的安全。任何試圖對該變數進行賦值的語句，都將無法通過編譯。'
-        };
-      }
-      case 8: {
-        const tVal = step + 1;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 基礎遞迴遞迴 base`,
-          chineseDescription: `完成以下計算費氏數列（Fibonacci）的遞迴函式。填寫基本邊界條件（Base Case）的判斷語句。`,
-          codeTemplate: `int fib(int n) {\n  ______ (n <= 1) return n;\n  return fib(n-1) + fib(n-2);\n}`,
-          expectedAnswer: 'if',
-          hint: '當 n 小於等於 1 時返回 n。',
-          explanation: '遞迴函式必須設置合適的邊界條件（Base Case），否則程式將在執行時發生無窮呼叫導致記憶體堆疊溢位（Stack Overflow）。'
-        };
-      }
-      case 9: {
-        const globalVal = step * 100;
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 作用域解析運算子`,
-          chineseDescription: `在局部變數同名遮蔽（Shadowing）時，使用作用域解析運算子調用外部全域的變數（值為 ${globalVal}）。`,
-          codeTemplate: `int global_var = ${globalVal};\nvoid show() {\n  int global_var = 5;\n  cout << "全域變數為: " << ______global_var;\n}`,
-          expectedAnswer: '::',
-          hint: '雙冒號。',
-          explanation: '雙冒號 :: 為作用域解析運算子（Scope Resolution Operator），若其左側留空，則代表存取全域（Global Namespace）作用域。'
-        };
-      }
-      case 10: {
-        return {
-          id, fieldId,
-          title: `[LV.4 函式] #${fieldId} 多載匹配決策`,
-          chineseDescription: `若我們宣告了 ` + "`void print(int)`" + ` 與 ` + "`void print(double)`" + `，調用 ` + "`print(" + (step + 0.5) + ")`" + ` 時，編譯器會自動匹配哪一種引數型態？`,
-          codeTemplate: `void print(int);\nvoid print(______); // print(${(step + 0.5)}) 匹配此項`,
-          expectedAnswer: 'double',
-          hint: '浮點數型態名稱。',
-          explanation: 'C++ 支持函式多載（Overloading），編譯器在編譯期會根據傳入實參的靜態型態（此處為 double），尋找最優的函數特化簽名。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 75) {
-    // ==========================================
-    // Category 5: Arrays & Strings (Levels 61 - 75)
-    // ==========================================
-    const step = fieldId - 60; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const size = step + 5;
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 靜態陣列大小界定`,
-          chineseDescription: `請在棧記憶體（Stack）中宣告一個大小固定為 ${size} 的整數陣列 scores_${fieldId}。`,
-          codeTemplate: `int scores_${fieldId}[______];`,
-          expectedAnswer: size.toString(),
-          hint: `直接填入長度常數：${size}。`,
-          explanation: '在 C++ 中，靜態陣列的大小必須是一個編譯期確定的常數表達式，其記憶體空間會在編譯期保留。'
-        };
-      }
-      case 2: {
-        const rows = step + 1;
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 二維矩陣網格存取`,
-          chineseDescription: `請存取這個 ${rows}x3 二維農田作物高度矩陣。取得第 0 列第 2 行的元素。`,
-          codeTemplate: `int height = farm_grid[0]______2];`,
-          expectedAnswer: '[',
-          hint: '左中括弧。',
-          explanation: 'C++ 的二維陣列底層是連續的一維排列，邏輯上使用雙重中括弧 matrix[row][col] 來進行多維維度的索引存取。'
-        };
-      }
-      case 3: {
-        const varName = `farm_name_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 字串長度查詢`,
-          chineseDescription: `請填寫適當的標準字串成員函式，以獲取 string 變數 ${varName} 的字元長度。`,
-          codeTemplate: `std::string ${varName} = "Super_Farm";\nsize_t len = ${varName}.______();`,
-          expectedAnswer: 'length',
-          hint: '長度。也可以是 size，但本關優先使用 length。',
-          explanation: 'std::string 提供了 .length() 與 .size() 成員函式，兩者等價，皆返回字串所含的位元組個數（不計終止符）。'
-        };
-      }
-      case 4: {
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} C風格字串空字元`,
-          chineseDescription: `在傳統的 C 風格字元陣列（C-style string）中，用來標誌字串結尾的 Null 終止符號為何？`,
-          codeTemplate: `char name[] = {'C', 'P', 'P', '______'};`,
-          expectedAnswer: '\\0',
-          hint: '反斜線加零。',
-          explanation: '\\0（ASCII 值 0）是 C 風格字串結束的物理邊界標記。任何標準 C 函數庫操作都依據它來停止讀取。'
-        };
-      }
-      case 5: {
-        const sName = `url_str_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 子字串提取 substr`,
-          chineseDescription: `請填寫 C++ 獲取部分子字串的成員函式。`,
-          codeTemplate: `std::string ${sName} = "https://cpp.org";\nstd::string sub = ${sName}.______(8, 3); // 取得 "cpp"`,
-          expectedAnswer: 'substr',
-          hint: 'Sub-string 的簡寫。',
-          explanation: '.substr(pos, len) 函式從指定下標開始拷貝長度為 len 的子字串。若省略 len 則預設拷貝至原字串的最末端。'
-        };
-      }
-      case 6: {
-        const keyword = `crop_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 字串關鍵字搜尋 find`,
-          chineseDescription: `在 C++ 標準 string 中，搜尋子字串 "wheat" 首次出現的索引下標。請填寫成員函式。`,
-          codeTemplate: `std::string field = "corn_wheat_rice";\nsize_t pos = field.______("wheat");`,
-          expectedAnswer: 'find',
-          hint: '尋找、尋獲的英文。',
-          explanation: '.find() 成員函式在字串中搜尋指定的字元或字串。若尋獲則返回首字元索引，若失敗則回傳 std::string::npos。'
-        };
-      }
-      case 7: {
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 動態向量動態調整`,
-          chineseDescription: `請填寫標準 vector 成員函式，將向量 elements 的元素數目強制重設為 ${step + 10}。`,
-          codeTemplate: `std::vector<int> elements;\nelements.______(${step + 10});`,
-          expectedAnswer: 'resize',
-          hint: '重新調整尺寸。',
-          explanation: '.resize(n) 用於變更 vector 的大小。若新大小大於原大小，則在尾部填充預設值；若小於則截斷元素。'
-        };
-      }
-      case 8: {
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 字串追隨串接`,
-          chineseDescription: `請填寫最適當的運算子，將字元 '!' 累加追加入現有 string 變數 log_msg_${fieldId} 的尾部。`,
-          codeTemplate: `std::string log_msg_${fieldId} = "Success";\nlog_msg_${fieldId} ______ '!';`,
-          expectedAnswer: '+=',
-          hint: '加與等。',
-          explanation: 'std::string 支持運算子多載，利用 += 可以極高效率地在字串緩衝區末端追加新字元，避免不必要的臨時拷貝。'
-        };
-      }
-      case 9: {
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 標準字串型態類別`,
-          chineseDescription: `宣告一個可進行安全字串操作、免去管理記憶體的 C++ 標準字串物件，變數名為 name_${fieldId}。`,
-          codeTemplate: `std::______ name_${fieldId} = "C++ Farm Plots";`,
-          expectedAnswer: 'string',
-          hint: '字串的英文。',
-          explanation: 'std::string 是 C++ 標準模板庫中的類別，動態管理內部字元數組，提供自動擴充、拼接等高階安全特性。'
-        };
-      }
-      case 10: {
-        return {
-          id, fieldId,
-          title: `[LV.5 陣列字串] #${fieldId} 字元判斷與轉化`,
-          chineseDescription: `檢測字元是否為阿拉伯數字的標準函數為 isdigit。欲將字元 c 轉換為「大寫」應使用哪一個標準函數？`,
-          codeTemplate: `#include <cctype>\nchar upper_c = std::______(c);`,
-          expectedAnswer: 'toupper',
-          hint: '轉大寫。',
-          explanation: 'std::toupper 接收一個整數（字元 ASCII 碼），若為小寫字母則回傳其對應的大寫字母，否則按原值返回。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 90) {
-    // ==========================================
-    // Category 6: Pointers, References & Structs (Levels 76 - 90)
-    // ==========================================
-    const step = fieldId - 75; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const varName = `soil_temp_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 尋址取地址運算子`,
-          chineseDescription: `要讓指標 p 指向一般變數 ${varName} 的記憶體空間，必須使用什麼單目運算子來取得其物理記憶體地址？`,
-          codeTemplate: `int ${varName} = ${step * 2 + 20};\nint* p = ______${varName};`,
-          expectedAnswer: '&',
-          hint: '和號（取地址符）。',
-          explanation: '& 運算子是取地址運算子。它作用於一般的記憶體變數，並返回該變數在虛擬記憶體空間中的實際起始地址。'
-        };
-      }
-      case 2: {
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 指標反尋址解引用`,
-          chineseDescription: `使用指標解引用（Dereference）運算子，讀取指標 ptr 內部儲存地址所對應的整數值並存入 val_${fieldId}。`,
-          codeTemplate: `int* ptr = &moisture;\nint val_${fieldId} = ______ptr;`,
-          expectedAnswer: '*',
-          hint: '星號（解引用符）。',
-          explanation: '* 運算子用於解引用指標。它告訴編譯器前往該指標存放的記憶體地址，直接讀取或修改該處存放的實際數據。'
-        };
-      }
-      case 3: {
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 安全空指標 C++11`,
-          chineseDescription: `請使用 C++11 起最安全、強型別的空指標常量，來初始化整數指標 variable_ptr_${fieldId}。`,
-          codeTemplate: `double* variable_ptr_${fieldId} = ______;`,
-          expectedAnswer: 'nullptr',
-          hint: '不要使用舊式的 NULL 或 0。',
-          explanation: 'nullptr 是 C++11 引進的專屬強型別空指標字面常數，能精確對應指標型態，避免與整數 0 產生重載歧義。'
-        };
-      }
-      case 4: {
-        const originalName = `wet_value_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 別名引用宣告`,
-          chineseDescription: `請宣告一個引用變數（Reference）ref，作為變數 ${originalName} 的直接記憶體別名。`,
-          codeTemplate: `int ${originalName} = 88;\nint______ ref = ${originalName};`,
-          expectedAnswer: '&',
-          hint: '引用符號，與取地址同符。',
-          explanation: '引用 & 是 C++ 獨特的語法特徵。引用在宣告時必須當場初始化，且其一經綁定便終生無法變更綁定對象。'
-        };
-      }
-      case 5: {
-        const sName = `Crop_Struct_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 自訂結構定義 struct`,
-          chineseDescription: `請使用 C++ 的結構關鍵字定義一個自定義複合型態 ${sName}，打包多項欄位。`,
-          codeTemplate: `______ ${sName} {\n  int id;\n  double size;\n};`,
-          expectedAnswer: 'struct',
-          hint: '結構體關鍵字。',
-          explanation: 'struct 關鍵字用於定義結構。在 C++ 中，struct 的成員預設存取權限均為 public，是最基礎的資料包裝載體。'
-        };
-      }
-      case 6: {
-        const vName = `farm_obj_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 結構實體成員存取`,
-          chineseDescription: `請使用直接成員存取符（Member Access Operator），寫入該結構實體 ${vName} 的 weight 欄位。`,
-          codeTemplate: `Crop_Struct_${fieldId} ${vName};\n${vName}______weight = 4.25;`,
-          expectedAnswer: '.',
-          hint: '一個句點符號。',
-          explanation: '點號 . 是 C++ 的成員存取運算子，用於存取一般非指標結構或類別實體的成員變數與成員函式。'
-        };
-      }
-      case 7: {
-        const ptrName = `ptr_farm_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 指標成員箭頭運算`,
-          chineseDescription: `請使用間接成員存取運算子，透過結構指標 ${ptrName} 來寫入其指向實體的 status 屬性。`,
-          codeTemplate: `Crop_Struct_${fieldId} target;\nCrop_Struct_${fieldId}* ${ptrName} = &target;\n${ptrName}______status = 1;`,
-          expectedAnswer: '->',
-          hint: '減號與大於號組成的箭頭。',
-          explanation: '-> 是箭頭運算子。當我們對指標對象進行成員讀寫時，x->y 實質上是 (*x).y 的語法糖，極具可讀性。'
-        };
-      }
-      case 8: {
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 指標連續遞增步進`,
-          chineseDescription: `在處理連續記憶體陣列時，將指標向後移動一個元素單位。請填寫最精簡的自增運算子。`,
-          codeTemplate: `int arr[5] = {1, 2, 3, 4, 5};\nint* p = arr;\np______; // 現在指向 arr[1]`,
-          expectedAnswer: '++',
-          hint: '加加。',
-          explanation: '對指標進行自增（p++），編譯器會依據指標宣告的基底型態大小（sizeof(T)），自動在底層乘上位元組步進地址。'
-        };
-      }
-      case 9: {
-        const val = step * 100;
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 唯讀資料指針 const`,
-          chineseDescription: `宣告一個指向「不可修改整數」（常數）的指標 ptr，保護指向的數值 ${val}。`,
-          codeTemplate: `______ int* ptr = &val_limit;`,
-          expectedAnswer: 'const',
-          hint: '常數。',
-          explanation: 'const int* ptr 代表指向常數的指標。指標本身的儲存地址可以更換，但不能透過該指標修改其所指位置的值。'
-        };
-      }
-      case 10: {
-        return {
-          id, fieldId,
-          title: `[LV.6 指標結構] #${fieldId} 無型態通用指標 void`,
-          chineseDescription: `請宣告一個可以接收任意數據地址的無型態通用指標（Raw Pointer），型態名稱為：______*。`,
-          codeTemplate: `______* raw_memory_ptr = &moisture_level;`,
-          expectedAnswer: 'void',
-          hint: '空的、無型態。',
-          explanation: 'void* 代表無型態指標，能指向任何資料類型。但在解引用前，必須先使用 static_cast 強制轉換回具體型態。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 105) {
-    // ==========================================
-    // Category 7: Classes & OOP Basics (Levels 91 - 105)
-    // ==========================================
-    const step = fieldId - 90; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const className = `Farm_Plot_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} C++ 類別定義 class`,
-          chineseDescription: `請使用 C++ 專屬關鍵字定義一個高凝聚力的 C++ 類別原型 ${className}。`,
-          codeTemplate: `______ ${className} {\n  int capacity;\n};`,
-          expectedAnswer: 'class',
-          hint: '類別的英文。',
-          explanation: 'class 關鍵字用於封裝狀態與行為。C++ 類別的成員預設權限為 private，這是實施物件導向封裝的起點。'
-        };
-      }
-      case 2: {
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 開放成員存取 public`,
-          chineseDescription: `指定後續宣告的變數與成員函式皆具備外部可任意存取的最高權限級別。`,
-          codeTemplate: `class Crop {\n______:\n  int height;\n  void water_it();\n};`,
-          expectedAnswer: 'public',
-          hint: '公共的、公開的。',
-          explanation: 'public 存取修飾子規定的成員對外部所有實體皆開放讀取。良好的類別通常只將控制方法與介面設為 public。'
-        };
-      }
-      case 3: {
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 內部私有成員 private`,
-          chineseDescription: `請宣告內部的隱私封裝權限，拒絕任何外部程式直接存取此敏感的財務欄位。`,
-          codeTemplate: `class Wallet {\n______:\n  int coins_inside;\n};`,
-          expectedAnswer: 'private',
-          hint: '私有的。',
-          explanation: 'private 修飾的成員僅能被類別自身的內部成員函式（或友元）拜訪，是防止狀態被非法破壞的防衛盾牌。'
-        };
-      }
-      case 4: {
-        const val = step * 10;
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 成員初始化列表`,
-          chineseDescription: `在建構子建構時，使用成員初始化列表（Member Initialization List）的高效語法，將屬性 width 賦初值 ${val}。`,
-          codeTemplate: `class Board {\n  int width;\npublic:\n  Board() ______ width(${val}) {}\n};`,
-          expectedAnswer: ':',
-          hint: '冒號符號。',
-          explanation: '在建構子參數列表後加冒號 :，可觸發初始化列表。這比在建構子體內用等號賦值更高效，能免去預設建構的開銷。'
-        };
-      }
-      case 5: {
-        const cName = `Plot_Deleter_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 資源解構子析構`,
-          chineseDescription: `請為類別 ${cName} 定義一個用來在物件消亡時釋放外部檔案或記憶體資源的析構/解構子。`,
-          codeTemplate: `class ${cName} {\npublic:\n  ______${cName}() {\n    // 清理動態資源\n  }\n};`,
-          expectedAnswer: '~',
-          hint: '波浪符。按 Shift + ~ 鍵輸入。',
-          explanation: '波浪號 ~ 後面跟類別名稱即為解構子（Destructor）。當物件生命週期結束時，系統會自動調用它進行就地清理。'
-        };
-      }
-      case 6: {
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 當前物件指標 this`,
-          chineseDescription: `在成員方法中，當參數名與屬性成員變數同名時，使用什麼關鍵字指涉「當前調用此方法之物件自身地址」？`,
-          codeTemplate: `class Node {\n  int id;\npublic:\n  void set_id(int id) {\n    ______->id = id;\n  }\n};`,
-          expectedAnswer: 'this',
-          hint: '這個、目前這一個。',
-          explanation: 'this 是指向當前物件實體的隱含常數指針。它在非靜態成員方法中隱式可用，常用於消除參數命名遮蔽。'
-        };
-      }
-      case 7: {
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 唯讀成員方法 const`,
-          chineseDescription: `請宣告此屬性讀取函式（Getter）為唯讀成員函式，防止在其中無意間修改了類別內的任何成員變數。`,
-          codeTemplate: `class Sensor {\n  int value;\npublic:\n  int get_value() ______ {\n    return value;\n  }\n};`,
-          expectedAnswer: 'const',
-          hint: '常數關鍵字，置於參數括弧與函式體之間。',
-          explanation: '成員函式尾部的 const 保證此方法不會在內部修改物件的任何狀態。唯讀物件只能調用此類 const 成員函式。'
-        };
-      }
-      case 8: {
-        const counterName = `count_fields_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 類別靜態成員 static`,
-          chineseDescription: `請宣告一個不屬於任何個別單一物件實體、而是由該類別所有物件共用的全域靜態成員變數。`,
-          codeTemplate: `class Field_Manager {\npublic:\n  ______ int ${counterName};\n};`,
-          expectedAnswer: 'static',
-          hint: '靜態的。',
-          explanation: 'static 類別成員只有一份實體，儲存於全域靜態區中。它在類別外定義，可不經實體化即透過 類別名:: 進行呼叫。'
-        };
-      }
-      case 9: {
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 友元信任存取 friend`,
-          chineseDescription: `請在內部向某外部類別或函式授予特別的存取信任權限（Friend Class），允許其直接讀寫本類別之 private 私有成員。`,
-          codeTemplate: `class Private_Zone {\n  int passcode;\n  ______ class Inspector;\n};`,
-          expectedAnswer: 'friend',
-          hint: '朋友。',
-          explanation: 'friend 關鍵字破壞了傳統的封裝屏障，允許授信的外部函數或類別在內部像成員本身一樣無限制拜訪私有成員。'
-        };
-      }
-      case 10: {
-        const val = step * 50;
-        return {
-          id, fieldId,
-          title: `[LV.7 類別基礎] #${fieldId} 單參數防隱式轉換`,
-          chineseDescription: `在單一參數的建構子前加上什麼關鍵字，以杜絕編譯器在背後偷偷進行非預期的隱式型態轉換（Implicit Conversion）？`,
-          codeTemplate: `class Price {\n  int val;\npublic:\n  ______ Price(int v) : val(v) {}\n};`,
-          expectedAnswer: 'explicit',
-          hint: '明確的、防止隱式轉換的。',
-          explanation: 'explicit 關鍵字禁止編譯器利用單參數建構子將整數隱式轉型為 Price 物件，強化了編譯期型別安全的防護。'
-        };
-      }
-    }
-  }
-
-  if (fieldId <= 120) {
-    // ==========================================
-    // Category 8: Inheritance & Polymorphism (Levels 106 - 120)
-    // ==========================================
-    const step = fieldId - 105; // 1 to 15
-    switch (cardIndex) {
-      case 1: {
-        const baseClass = `Irrigator_Base_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 基礎繼承派生`,
-          chineseDescription: `讓新類別 Smart_Irrigator 繼承現有的基礎設施父類別 ${baseClass}。`,
-          codeTemplate: `class Smart_Irrigator ______ public ${baseClass} {\n  int automation_level;\n};`,
-          expectedAnswer: ':',
-          hint: '單冒號。',
-          explanation: 'C++ 使用單冒號 : 引導繼承。冒號右側跟隨繼承存取層級與基底類別名稱，能獲取基類的公用屬性與代碼複用。'
-        };
-      }
-      case 2: {
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 公有派生繼承 public`,
-          chineseDescription: `在多數標準 OO 繼承架構中，我們都優先採取符合「Is-A 關係」的最標準「公有繼承（Public Inheritance）」。`,
-          codeTemplate: `class Derived_Plot : ______ Base_Plot {\n  // 公有繼承\n};`,
-          expectedAnswer: 'public',
-          hint: '公開的。',
-          explanation: 'public 繼承最完整地保留了基類成員的存取屬性。基類的 public 在子類依然是 public，符合物件導向行為相容原則。'
-        };
-      }
-      case 3: {
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 動態繫結虛擬 virtual`,
-          chineseDescription: `請填寫宣告多型核心的關鍵字，以啟動執行期動態繫結（Dynamic Binding），允許子類別重寫（Override）此方法。`,
-          codeTemplate: `class Crop_Base {\npublic:\n  ______ void grow_action() {\n    cout << "一般生長";\n  }\n};`,
-          expectedAnswer: 'virtual',
-          hint: '虛擬的。',
-          explanation: 'virtual 關鍵字建構了 C++ 虛擬函數表（Vtable）。當指針指向衍生對象時，程序會在運行期動態決定調用何者的函數。'
-        };
-      }
-      case 4: {
-        const interfaceName = `Field_Action_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 純虛擬函式抽象介面`,
-          chineseDescription: `將此生長方法宣告為純虛擬函式（Pure Virtual Function），使 ${interfaceName} 成為不可實體化的「抽象類別（Abstract Class）」。`,
-          codeTemplate: `class ${interfaceName} {\npublic:\n  virtual void trigger_harvest() = ______;\n};`,
+          title: `${prefix} 程式正常結束傳回碼`,
+          chineseDescription: `main 函式執行完畢時，標準慣例應回傳哪一個數字給作業系統表示無錯誤順利結束？`,
+          codeTemplate: `int main() {\n  std::cout << "執行完畢";\n  return ______;\n}`,
           expectedAnswer: '0',
           hint: '數字零。',
-          explanation: '純虛擬函數以 = 0 做結尾宣告，它完全不提供默認實作，強制任何非抽象的衍生子類必須實作此接口才能建立對象。'
-        };
-      }
-      case 5: {
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 重寫方法複寫 override`,
-          chineseDescription: `在 C++11 中，為了避免因打字錯誤不小心重載了同名方法，建議在子類別方法後加上什麼編譯檢驗修飾字？`,
-          codeTemplate: `class Auto_Sower : public Sower_Base {\npublic:\n  void do_sow() ______ {\n    custom_seed_drop();\n  }\n};`,
-          expectedAnswer: 'override',
-          hint: '覆蓋、重寫的英文。',
-          explanation: 'override 關鍵字讓編譯器在編譯階段嚴格審核：該成員函式是否在基底類別中存在完全一致的 virtual 虛擬函數特化。'
-        };
-      }
-      case 6: {
-        const baseName = `Base_Field_${fieldId}`;
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 基底重寫方法顯式調用`,
-          chineseDescription: `當衍生類別重寫了 show()，若衍生類別成員內部仍想「指名調用」父類別 ${baseName} 中的原始 show()，該如何寫？`,
-          codeTemplate: `void Derived_Show() {\n  ______::show(); // 呼叫父類的 show()\n}`,
-          expectedAnswer: baseName,
-          hint: `直接填寫父類別的名稱：${baseName}。`,
-          explanation: '利用基底類別名稱加雙冒號 BaseClassName:: 前綴，即可在程式中靜態繞過多型機制的動態查找，強行調用父類版本。'
-        };
-      }
-      case 7: {
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 終止繼承 final`,
-          chineseDescription: `C++11 引進了什麼關鍵字，可以放在類別宣告後面，代表此類別是個完美的葉子節點，完全「禁止」任何後續類別再次繼承它？`,
-          codeTemplate: `class Ultimate_Processor ______ {\n  // 拒絕衍生子類\n};`,
-          expectedAnswer: 'final',
-          hint: '最終的、最後的。',
-          explanation: 'final 關鍵字可用於類別或特定虛擬方法。應用於類別時拒絕子類派生；應用於方法時則禁止衍生類重寫該方法。'
-        };
-      }
-      case 8: {
-        return {
-          id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 子類存取權限 protected`,
-          chineseDescription: `請填寫介於公有與私有之間的成員防護權限，僅允許「自身內部與其衍生子類內部」進行直接拜訪，外部依然隔離。`,
-          codeTemplate: `class Secret_Formula {\n______:\n  double formula_coefficient;\n};`,
-          expectedAnswer: 'protected',
-          hint: '受保護的。',
-          explanation: 'protected 提供給子類繼承體系專屬的開放存取。它保護資料免受普通外部物件的隨意窺視，但對衍生體系提供信任。'
+          explanation: 'return 0; 代表程式回傳 exit code 0，向作業系統回報程式成功運行。'
         };
       }
       case 9: {
         return {
           id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 多型解構安全防護`,
-          chineseDescription: `為了防止在 delete 指向衍生實體的父類指針時產生記憶體部分殘留（Memory Leak），父類別的解構子必須宣告為什麼型態？`,
-          codeTemplate: `class Shape {\npublic:\n  ______ virtual ~Shape() {}\n};`,
-          expectedAnswer: 'virtual',
-          hint: '虛擬的，通常放在析構函式最前方。',
-          explanation: '基底類別必須宣告虛擬解構子（Virtual Destructor）。這能確保在解構時，能順著虛擬函數指針鏈正確引導子類先解構。'
+          title: `${prefix} 單行註解符號`,
+          chineseDescription: `C++ 中用來撰寫單行說明註解、不會被編譯器執行的符號是什麼？`,
+          codeTemplate: `______ 這是第 ${fieldId} 區良田的系統設定說明\nstd::cout << "OK";`,
+          expectedAnswer: '//',
+          hint: '連續兩個正斜線。',
+          explanation: '// 為 C++ 單行註解符號，從該符號到該行行尾的文字皆會被編譯器忽略。'
         };
       }
       case 10: {
+        const num = fieldId * 5;
         return {
           id, fieldId,
-          title: `[LV.8 繼承多型] #${fieldId} 執行期多型轉型 dynamic_cast`,
-          chineseDescription: `請填寫 C++ 專門在執行期（Runtime）用來安全地將基底類別指針轉型為衍生類別指針的動態轉型運算子。`,
-          codeTemplate: `Derived* d = ______(base_ptr);`,
-          expectedAnswer: 'dynamic_cast',
-          hint: '動態轉型（包含底線與 cast）。格式為 dynamic_cast<T*>(ptr)。',
-          explanation: 'dynamic_cast 利用執行期類型訊息（RTTI）進行安全向下轉型。若轉型不合法，指針類型將安全地回傳 nullptr 常數。'
+          title: `${prefix} 連續串流輸出數字`,
+          chineseDescription: `cout 可以使用多個 << 串流運算子連續輸出字串與計算結果。請補齊第二個串流連接運算子。`,
+          codeTemplate: `std::cout << "灌溉水量: " ______ ${num} << " 升\\n";`,
+          expectedAnswer: '<<',
+          hint: '串流插入運算子。',
+          explanation: '多個 << 可以串連在一起，依序將多個不同型態的資料輸出至終端機。'
         };
       }
     }
   }
 
-  if (fieldId <= 135) {
-    // ==========================================
-    // Category 9: STL Containers (Levels 121 - 135)
-    // ==========================================
-    const step = fieldId - 120; // 1 to 15
+  // =========================================================================
+  // CHAPTER 2: 📦 變數與資料型別 (Levels 11 ～ 20) [高中核心]
+  // =========================================================================
+  if (fieldId >= 11 && fieldId <= 20) {
     switch (cardIndex) {
       case 1: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 動態陣列向量 Vector`,
-          chineseDescription: `宣告一個可以自動調整物理記憶體長度、連續儲存整數的 C++ 標準向量容器。`,
-          codeTemplate: `std::______<int> farm_record;`,
-          expectedAnswer: 'vector',
-          hint: '向量、動態陣列。',
-          explanation: 'std::vector 是 C++ 最核心的連續記憶體動態數組，支持 O(1) 尾端隨機插刪，以及高速隨機下標拜訪。'
+          title: `${prefix} 整數型別 int 宣告`,
+          chineseDescription: `請使用 C++ 最常用的 32 位元整數型態關鍵字，宣告變數 crops 並賦值為 ${subLevel * 10}。`,
+          codeTemplate: `______ crops = ${subLevel * 10};`,
+          expectedAnswer: 'int',
+          hint: 'Integer 的縮寫。',
+          explanation: 'int 是 C++ 最常用的整數型態，在現代 32/64 位元系統中通常佔用 4 位元組。'
         };
       }
       case 2: {
-        const val = step * 10 + 5;
+        const val = (subLevel * 1.5).toFixed(2);
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 向量追加元素 push_back`,
-          chineseDescription: `將整數作物編號 ${val} 以 O(1) 效率追加推入向量尾端。請填入最適當的 STL 函數方法。`,
-          codeTemplate: `std::vector<int> crops;\ncrops.______(${val});`,
-          expectedAnswer: 'push_back',
-          hint: '向後推入，利用底線連結。',
-          explanation: '.push_back(val) 會在向量的最後方配置新空間，並將傳入物件複製或搬移到該處。攤提時間複雜度為 O(1)。'
+          title: `${prefix} 雙精度浮點數 double 宣告`,
+          chineseDescription: `宣告一個雙精度浮點數變數 water_level，精確儲存小數值 ${val}。`,
+          codeTemplate: `______ water_level = ${val};`,
+          expectedAnswer: 'double',
+          hint: '雙倍精度的英文關鍵字。',
+          explanation: 'double 提供 64 位元雙精度浮點數儲存，能表示約 15~17 位有效小數位。'
         };
       }
       case 3: {
+        const ch = String.fromCharCode(65 + (subLevel % 26));
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 排序關聯表 Map`,
-          chineseDescription: `宣告一個以 string 為鍵、int 為值，底層基於平衡紅黑樹、會對 Key 自動升冪排序的對照關聯表。`,
-          codeTemplate: `std::______<std::string, int> crop_price_index;`,
-          expectedAnswer: 'map',
-          hint: '地圖、關聯表。',
-          explanation: 'std::map 內部使用紅黑樹維護，所有鍵值對按鍵的大小順序精確排序，每次插入、查找與刪除皆保證 O(log N) 耗時。'
+          title: `${prefix} 字元型別 char 宣告`,
+          chineseDescription: `請宣告一個存放單一 ASCII 字元的變數 grade，並指派字元 '${ch}'。`,
+          codeTemplate: `______ grade = '${ch}';`,
+          expectedAnswer: 'char',
+          hint: 'Character 的縮寫。',
+          explanation: 'char 用於儲存單一字元，佔用 1 個位元組，字面值必須使用單引號包覆。'
+        };
+      }
+      case 4: {
+        const state = subLevel % 2 === 1;
+        return {
+          id, fieldId,
+          title: `${prefix} 布林型別 bool 宣告`,
+          chineseDescription: `請使用布林型態關鍵字宣告變數 is_harvested，紀錄是否已收成（值為 ${state ? 'true' : 'false'}）。`,
+          codeTemplate: `______ is_harvested = ${state ? 'true' : 'false'};`,
+          expectedAnswer: 'bool',
+          hint: 'Boolean 的縮寫。',
+          explanation: 'bool 是 C++ 的布林邏輯型態，值只能為 true (1) 或 false (0)。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 常數保護關鍵字 const`,
+          chineseDescription: `若希望變數 MAX_SEEDS 在初始化後數值不可被修改，應在型態前加上什麼修飾關鍵字？`,
+          codeTemplate: `______ int MAX_SEEDS = ${subLevel * 100};`,
+          expectedAnswer: 'const',
+          hint: 'Constant 的縮寫。',
+          explanation: 'const 修飾的變數為唯讀常數，若後續程式試圖修改它，編譯器將會報錯。'
+        };
+      }
+      case 6: {
+        const val = `${subLevel}500000000`;
+        return {
+          id, fieldId,
+          title: `${prefix} 64 位元長整數 long long`,
+          chineseDescription: `當整數數值超過 21 億（超過 32 位元 int 上限）時，應使用哪種 64 位元長整數型態？`,
+          codeTemplate: `______ large_inventory = ${val}LL;`,
+          expectedAnswer: 'long long',
+          hint: '兩個 long 組合。',
+          explanation: 'long long 提供至少 64 位元整數空間，上限可達約 9x10^18，能避免數值溢位。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 單精度浮點數 float`,
+          chineseDescription: `宣告一個 32 位元單精度浮點數變數 ph_value。`,
+          codeTemplate: `______ ph_value = 6.5f;`,
+          expectedAnswer: 'float',
+          hint: '浮點數英文關鍵字。',
+          explanation: 'float 佔用 4 位元組（32 位元），常數後綴 f 表示單精度字面值。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 記憶體大小測量 sizeof`,
+          chineseDescription: `請使用 C++ 內建運算子測量 int 型別在目前電腦環境所佔用的位元組（Bytes）大小。`,
+          codeTemplate: `int bytes = ______(int);`,
+          expectedAnswer: 'sizeof',
+          hint: '尺寸大小運算子。',
+          explanation: 'sizeof(type) 或 sizeof(var) 是編譯期運算子，返回該型態所佔用的位元組數量。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 布林真假常數 true/false`,
+          chineseDescription: `在 C++ 中，布林值「真」的關鍵字是？`,
+          codeTemplate: `bool can_water = ______;`,
+          expectedAnswer: 'true',
+          hint: '英文的「正確/真實」。',
+          explanation: 'C++ 內建布林字面值關鍵字 true (1) 與 false (0)。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 變數賦值指定運算子`,
+          chineseDescription: `將數值 ${subLevel * 25} 指定（賦值）給已宣告的變數 total_yield。請填寫指定運算子。`,
+          codeTemplate: `int total_yield ______ ${subLevel * 25};`,
+          expectedAnswer: '=',
+          hint: '單個等號。',
+          explanation: '單個等號 = 是賦值運算子，將右側表達式的值存入左側變數中。'
+        };
+      }
+    }
+  }
+
+  // =========================================================================
+  // CHAPTER 3: ⌨️ 輸入與基本運算 (Levels 21 ～ 30) [高中核心]
+  // =========================================================================
+  if (fieldId >= 21 && fieldId <= 30) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 標準鍵盤輸入串流 cin`,
+          chineseDescription: `請填寫 C++ 用於由鍵盤讀取使用者輸入的標準輸入串流物件名稱（Console Input）。`,
+          codeTemplate: `int count;\nstd::______ >> count;`,
+          expectedAnswer: 'cin',
+          hint: 'Console Input 縮寫。',
+          explanation: 'std::cin 是標準輸入串流，配合 >> 運算子可將輸入數據存入指定變數中。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 串流提取運算子 >>`,
+          chineseDescription: `請填寫串流提取運算子（Stream Extraction Operator），將 cin 中的輸入值送入變數 moisture。`,
+          codeTemplate: `int moisture;\nstd::cin ______ moisture;`,
+          expectedAnswer: '>>',
+          hint: '向右的雙角括弧。',
+          explanation: '>> 是串流提取運算子，將輸入緩衝區的資料解析後存入右側變數。'
+        };
+      }
+      case 3: {
+        const num1 = subLevel * 4;
+        const num2 = 3;
+        return {
+          id, fieldId,
+          title: `${prefix} 取餘數運算子 %`,
+          chineseDescription: `請利用取餘數運算子（Modulo）求出 ${num1} 除以 ${num2} 的餘數。`,
+          codeTemplate: `int remainder = ${num1} ______ ${num2};`,
+          expectedAnswer: '%',
+          hint: '百分比符號。',
+          explanation: '% 運算子用於計算兩整數相除後的餘數，例如 10 % 3 = 1。'
         };
       }
       case 4: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 唯一鍵值集合 Set`,
-          chineseDescription: `宣告一個不允許重複元素且會自動排序的 std 唯一值整數集合。`,
-          codeTemplate: `std::______<int> unique_crop_ids;`,
-          expectedAnswer: 'set',
-          hint: '集合。',
-          explanation: 'std::set 存儲不重複的元素值，底層使用平衡二元樹。當嘗試插入已存在的數值時，插入操作會被自動拒絕。'
+          title: `${prefix} 複合加法指定運算子 +=`,
+          chineseDescription: `請使用複合指定運算子，將變數 total_score 增加 ${subLevel * 5}（等同於 total_score = total_score + ${subLevel * 5}）。`,
+          codeTemplate: `total_score ______ ${subLevel * 5};`,
+          expectedAnswer: '+=',
+          hint: '加號接等號。',
+          explanation: '+= 是複合指定運算子，能精簡且高效地對自身變數進行累加操作。'
         };
       }
       case 5: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 單向佇列推入 push`,
-          chineseDescription: `在標準佇列（Queue，先進先出 FIFO）中，用來將作物實體 elements 推入佇列的函數方法。`,
-          codeTemplate: `std::queue<int> q;\nq.______(${step * 10});`,
-          expectedAnswer: 'push',
-          hint: '推入（單音節單字）。',
-          explanation: '.push(val) 在 FIFO 佇列尾端加入新元素，為佇列結構提供基本的入隊（Enqueue）能力。'
+          title: `${prefix} 變數自增 1 運算子 ++`,
+          chineseDescription: `請使用遞增運算子，將變數 harvest_day 的數值增加 1。`,
+          codeTemplate: `harvest_day______;`,
+          expectedAnswer: '++',
+          hint: '兩個加號。',
+          explanation: '++ 運算子使變數自增 1，有前置 (++x) 與後置 (x++) 兩種形式。'
         };
       }
       case 6: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 後進先出堆疊最頂 accessor`,
-          chineseDescription: `在標準 LIFO 堆疊（Stack，後進先出）中，用來讀取目前最後進去最頂端元素的函數方法。`,
-          codeTemplate: `std::stack<int> s;\ns.push(${step * 3});\nint top_element = s.______();`,
-          expectedAnswer: 'top',
-          hint: '頂端。',
-          explanation: '.top() 函式返回堆疊中最上層、最新推入的元素之引用，但呼叫它並不會將該元素從堆疊中移除。'
+          title: `${prefix} 變數自減 1 運算子 --`,
+          chineseDescription: `請使用遞減運算子，將變數 water_buckets 的數值減少 1。`,
+          codeTemplate: `water_buckets______;`,
+          expectedAnswer: '--',
+          hint: '兩個減號。',
+          explanation: '-- 運算子使變數自減 1，相當於 x = x - 1。'
         };
       }
       case 7: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 高效雜湊關聯表 unordered_map`,
-          chineseDescription: `宣告一個平均查詢效率可達極致 O(1) 的無序、基於雜湊表（Hash Table）底層的關聯對照表。`,
-          codeTemplate: `std::______<int, std::string> fast_farm_lookup;`,
-          expectedAnswer: 'unordered_map',
-          hint: '無序地圖，底劃線連接。',
-          explanation: 'std::unordered_map 基於雜湊表，不對鍵進行排序，但在平均情況下具有常數級別的超高速查找效能。'
+          title: `${prefix} 連續讀取多個變數`,
+          chineseDescription: `使用 cin 連續讀取兩個由空白隔開的整數 a 與 b。請補齊串流運算子。`,
+          codeTemplate: `int a, b;\nstd::cin >> a ______ b;`,
+          expectedAnswer: '>>',
+          hint: '提取運算子。',
+          explanation: 'cin >> a >> b 可以連續自輸入串流讀取多個變數，中間自動以空白或換行分隔。'
         };
       }
       case 8: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 迭代器型態定義`,
-          chineseDescription: `在遍歷 vector 元素時，宣告一個指向動態陣列起點的正向迭代器（Iterator）指標。`,
-          codeTemplate: `std::vector<int> v = {1, 2, 3};\nstd::vector<int>::______ it = v.begin();`,
-          expectedAnswer: 'iterator',
-          hint: '迭代器的英文。',
-          explanation: 'iterator 扮演了物件化的虛擬指針，解除了 STL 容器與普通指針的緊密耦合，統一了各類複雜容器的周遊手法。'
+          title: `${prefix} 明確型別轉換 static_cast`,
+          chineseDescription: `將整數變數 seeds 轉換為浮點數 double 進行精確小數除法。請填入 C++ 標準轉換語法 static_cast。`,
+          codeTemplate: `double avg = ______<double>(seeds) / 4.0;`,
+          expectedAnswer: 'static_cast',
+          hint: '靜態轉換關鍵字。',
+          explanation: 'static_cast<Type>(var) 是 C++ 標準的安全編譯期型別轉換運算子。'
         };
       }
       case 9: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 鍵值對包裝 Pair`,
-          chineseDescription: `宣告一個將「作物名稱（string）」與「高度（double）」組合成單一儲存單元的標準對子（Pair）。`,
-          codeTemplate: `std::______<std::string, double> crop_height_pair;`,
-          expectedAnswer: 'pair',
-          hint: '對、雙。',
-          explanation: 'std::pair 是一個極為簡約的結構模板，擁有 .first 與 .second 兩個公用屬性，常作為 map 節點或返回值。'
+          title: `${prefix} 複合乘法指定運算子 *=`,
+          chineseDescription: `將變數 multiplier 乘以 2，請使用複合乘法指定運算子。`,
+          codeTemplate: `multiplier ______ 2;`,
+          expectedAnswer: '*=',
+          hint: '星號接等號。',
+          explanation: '*= 是複合乘法指定運算子，即 x = x * 2。'
         };
       }
       case 10: {
         return {
           id, fieldId,
-          title: `[LV.9 容器管理] #${fieldId} 雙向鏈結串列 List`,
-          chineseDescription: `宣告一個不支援隨機儲存、但在任何位置插刪皆保證 O(1) 的雙向鏈結串列。`,
-          codeTemplate: `std::______<double> node_list;`,
-          expectedAnswer: 'list',
-          hint: '串列、清單。',
-          explanation: 'std::list 是一個傳統的雙向鏈結串列。它不具有連續記憶體，不支援 [] 索引，但非常適合繁雜的局部拓撲修改。'
+          title: `${prefix} 乘法算術運算子 *`,
+          chineseDescription: `請填入 C++ 乘法算術運算子，計算單價 price 與數量 quantity 的乘積。`,
+          codeTemplate: `int total_price = price ______ quantity;`,
+          expectedAnswer: '*',
+          hint: '星號。',
+          explanation: '在 C++ 中，* 是乘法運算子。'
         };
       }
     }
   }
 
-  // ==========================================
-  // Category 10: Templates & Modern C++ (Levels 136 - 150)
-  // ==========================================
-  const step = fieldId - 135; // 1 to 15
-  switch (cardIndex) {
-    case 1: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 泛型樣板宣告`,
-        chineseDescription: `在函式或類別最上方，填寫泛型樣板宣告關鍵字，使型態 T 在編譯期得以自動特化。`,
-        codeTemplate: `______ <typename T>\nT calculate_growth_power(T x) {\n  return x * 2;\n}`,
-        expectedAnswer: 'template',
-        hint: '模板、樣板的英文。',
-        explanation: 'template 關鍵字開啟 C++ 強大的泛型編譯引擎。編譯器會在調用點依據參數類型，即時重寫產生一份實體函式。'
-      };
+  // =========================================================================
+  // CHAPTER 4: 🚦 條件判斷 (Levels 31 ～ 40) [高中核心]
+  // =========================================================================
+  if (fieldId >= 31 && fieldId <= 40) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 單一條件分支 if`,
+          chineseDescription: `請填入條件判斷關鍵字 if，當水分 water 小於 30 時觸發灌溉提醒。`,
+          codeTemplate: `______(water < 30) {\n  std::cout << "土壤過乾，需要灌溉！\\n";\n}`,
+          expectedAnswer: 'if',
+          hint: '英文的「如果」。',
+          explanation: 'if 語句根據小括號內的布林條件真假，決定是否執行大括號內的程式區塊。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二分條件分支 else`,
+          chineseDescription: `當 if 條件不成立時，程式會執行哪一個關鍵字引導的分支區塊？`,
+          codeTemplate: `if (sunlight >= 50) {\n  std::cout << "日照充足";\n} ______ {\n  std::cout << "日照不足";\n}`,
+          expectedAnswer: 'else',
+          hint: '英文的「否則」。',
+          explanation: 'else 搭配 if 使用，當 if 條件為 false 時會自動執行 else 區塊。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 多重路徑條件 else if`,
+          chineseDescription: `在多重條件判斷中，介於 if 與 else 之間的額外路徑檢查應使用什麼關鍵字組合？`,
+          codeTemplate: `if (temp > 35) {\n  cool_down();\n} ______ (temp < 10) {\n  warm_up();\n}`,
+          expectedAnswer: 'else if',
+          hint: '否則如果。',
+          explanation: 'else if 可以串接多個互斥的條件檢驗，直到其中一個為 true 才會執行。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 相等比較運算子 ==`,
+          chineseDescription: `請寫出判斷變數 level 是否「等於」100 的關係運算子（注意不要與指定運算子混淆）。`,
+          codeTemplate: `if (level ______ 100) {\n  std::cout << "滿級大師！";\n}`,
+          expectedAnswer: '==',
+          hint: '連續兩個等號。',
+          explanation: '== 是相等比較運算子，若左右相等則回傳 true；單個 = 是賦值，千萬不可混淆。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 不等於比較運算子 !=`,
+          chineseDescription: `請寫出判斷作物種類 crop_type 是否「不等於」0 的關係運算子。`,
+          codeTemplate: `if (crop_type ______ 0) {\n  std::cout << "已選定作物品種";\n}`,
+          expectedAnswer: '!=',
+          hint: '驚嘆號接等號。',
+          explanation: '!= 是不等於比較運算子，當兩側數值不相同時回傳 true。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 邏輯且 AND 運算子 &&`,
+          chineseDescription: `當「土壤濕度 wet > 40」而且「溫度 temp > 20」兩條件同時成立時才生長。請填寫邏輯且運算子。`,
+          codeTemplate: `if (wet > 40 ______ temp > 20) {\n  grow_crop();\n}`,
+          expectedAnswer: '&&',
+          hint: '兩個 And 符號。',
+          explanation: '&& 是邏輯 AND 運算子，只有在兩端條件皆為 true 時，整體才為 true。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 邏輯或 OR 運算子 ||`,
+          chineseDescription: `當「遭遇蟲害 is_pest == true」或者「遭遇乾旱 is_drought == true」任一情況發生時報警。請填寫邏輯或運算子。`,
+          codeTemplate: `if (is_pest ______ is_drought) {\n  alarm_system();\n}`,
+          expectedAnswer: '||',
+          hint: '兩條垂直管線。',
+          explanation: '|| 是邏輯 OR 運算子，只要兩端條件中有任一個為 true，整體即為 true。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 邏輯非 NOT 運算子 !`,
+          chineseDescription: `請使用邏輯反向（NOT）運算子，將布林變數 is_locked 的值反轉（若為 false 則變為 true）。`,
+          codeTemplate: `if (______is_locked) {\n  enter_farm();\n}`,
+          expectedAnswer: '!',
+          hint: '單個驚嘆號。',
+          explanation: '! 是邏輯 NOT 運算子，用於將布林值反向，!false 為 true，!true 為 false。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 大於或等於運算子 >=`,
+          chineseDescription: `判斷儲存金幣 coins 是否「大於或等於」升級所需花費 ${subLevel * 50}。`,
+          codeTemplate: `if (coins ______ ${subLevel * 50}) {\n  upgrade_farm();\n}`,
+          expectedAnswer: '>=',
+          hint: '大於號接等號。',
+          explanation: '>= 是大於等於比較運算子。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 小於或等於運算子 <=`,
+          chineseDescription: `判斷目前庫存 storage 是否「小於或等於」警戒線 5。`,
+          codeTemplate: `if (storage ______ 5) {\n  restock();\n}`,
+          expectedAnswer: '<=',
+          hint: '小於號接等號。',
+          explanation: '<= 是小於等於比較運算子。'
+        };
+      }
     }
-    case 2: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 樣板型別參數 typename`,
-        chineseDescription: `在樣板參數宣告列表中，指定 T 是一個通用型別類別的關鍵字。`,
-        codeTemplate: `template <______ T>\nclass Box {\n  T content;\n};`,
-        expectedAnswer: 'typename',
-        hint: '型態名稱（也可以用 class，但本關優先要求現代的 typename）。',
-        explanation: 'typename 關鍵字在樣板列表中修飾參數，宣告 T 是一個泛型名稱。它在嵌套依賴名稱中，具有消除語法歧義的重要用途。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 5: 🔀 多重選擇 (Levels 41 ～ 50) [高中核心]
+  // =========================================================================
+  if (fieldId >= 41 && fieldId <= 50) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} switch 語句核心`,
+          chineseDescription: `請填寫用於多值分支比對的關鍵字 switch。`,
+          codeTemplate: `______(tool_id) {\n  case 1: use_hoe(); break;\n  case 2: use_water(); break;\n}`,
+          expectedAnswer: 'switch',
+          hint: '開關/切換關鍵字。',
+          explanation: 'switch 語句能針對整數或字元型態的變數進行多重等值匹配。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 分支標籤 case`,
+          chineseDescription: `在 switch 內部，用來標示各個特定匹配值的標籤關鍵字是什麼？`,
+          codeTemplate: `switch (season) {\n  ______ 1: std::cout << "春耕"; break;\n  ______ 2: std::cout << "夏耘"; break;\n}`,
+          expectedAnswer: 'case',
+          hint: '情況/案例關鍵字。',
+          explanation: 'case 後接常數表達式與冒號 :，作為 switch 跳轉的目標標籤。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 跳離分支關鍵字 break`,
+          chineseDescription: `在 case 處理區塊末尾，必須加上什麼關鍵字以防止程式向下「貫穿 (Fall-through)」執行其他分支？`,
+          codeTemplate: `case 1:\n  plant_corn();\n  ______;\ncase 2:`,
+          expectedAnswer: 'break',
+          hint: '打斷/中斷關鍵字。',
+          explanation: 'break 會強制跳出當前 switch 或迴圈區塊，避免繼續執行下一個 case。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 預設例外分支 default`,
+          chineseDescription: `在 switch 語句中，當所有 case 皆不匹配時，會執行哪一個預設標籤？`,
+          codeTemplate: `switch (code) {\n  case 1: execute(); break;\n  ______:\n    std::cout << "未知指令"; break;\n}`,
+          expectedAnswer: 'default',
+          hint: '預設關鍵字。',
+          explanation: 'default 是 switch 的預設分支，相當於 if-else 架構中的最後一個 else。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 三元條件運算子 ? :`,
+          chineseDescription: `請填寫三元條件運算子的問號 ?，語法為 (條件 ? 表達式A : 表達式B)。`,
+          codeTemplate: `int bonus = (streak > 5) ______ 50 : 10;`,
+          expectedAnswer: '?',
+          hint: '英文問號。',
+          explanation: '三元運算子是 C++ 唯一的三目運算子，條件為真時返回冒號左側，否則返回右側。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 三元運算子冒號隔開`,
+          chineseDescription: `請補齊三元運算子中區隔「為真」與「為假」兩選項的冒號 :。`,
+          codeTemplate: `std::string status = (is_ready) ? "Ready" ______ "Waiting";`,
+          expectedAnswer: ':',
+          hint: '英文冒號。',
+          explanation: '三元運算子以問號 ? 和冒號 : 構成簡潔的條件賦值敘述。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 巢狀 if 深度過濾`,
+          chineseDescription: `在外部 if 條件成立後，內部進一步使用第二層 if 檢查。請填入關鍵字 if。`,
+          codeTemplate: `if (has_key) {\n  ______(level >= ${subLevel * 2}) {\n    open_chest();\n  }\n}`,
+          expectedAnswer: 'if',
+          hint: '條件關鍵字。',
+          explanation: '巢狀 if (Nested if) 是在一個 if 區塊內再嵌入另一個 if，進行更細緻的多重門檻篩選。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} switch 處理字元選項`,
+          chineseDescription: `switch 亦能處理 char 字元型別。請填入代表 'A' 選項的 case 關鍵字。`,
+          codeTemplate: `switch (command) {\n  ______ 'A': auto_water(); break;\n}`,
+          expectedAnswer: 'case',
+          hint: '情況關鍵字。',
+          explanation: '字元在底層即為整數 ASCII 碼，完全支援在 switch case 中比對。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} case 後綴標點符號`,
+          chineseDescription: `在 case 數值之後，必須接上什麼標點符號引導後續執行的敘述句？`,
+          codeTemplate: `case 3______\n  harvest_all();\n  break;`,
+          expectedAnswer: ':',
+          hint: '英文冒號。',
+          explanation: '每個 case 常數後面必須緊跟一個冒號 : 作為標籤宣告。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} switch 多值共用分支`,
+          chineseDescription: `當 case 1 與 case 2 執行相同動作時，可以省略 case 1 的 break 讓其自然穿透。請補齊 case 關鍵字。`,
+          codeTemplate: `switch (mode) {\n  ______ 1:\n  case 2:\n    enable_fast_mode();\n    break;\n}`,
+          expectedAnswer: 'case',
+          hint: '情況關鍵字。',
+          explanation: '利用 switch 的穿透特性，可以讓多個 case 標籤共享同一段處理邏輯。'
+        };
+      }
     }
-    case 3: {
-      const vLimit = step * 10;
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 匿名 Lambda 捕捉中括弧`,
-        chineseDescription: `請填寫 Lambda 表達式最前方用來「捕捉外部局部變數」的專用中括弧符號（以值傳遞捕獲 variable）。`,
-        codeTemplate: `int limit_${fieldId} = ${vLimit};\nauto check = ______limit_${fieldId}](int val) {\n  return val > limit_${fieldId};\n};`,
-        expectedAnswer: '[',
-        hint: '左中括弧。完整結構為 [limit_xx]。',
-        explanation: 'Lambda 表達式以中括弧 [] 作為捕捉子開頭。可以在中括弧內指定引用的捕捉模式（如 [=] 按值捕獲，[&] 引用捕獲）。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 6: 🔄 while 迴圈 (Levels 51 ～ 60) [高中核心]
+  // =========================================================================
+  if (fieldId >= 51 && fieldId <= 60) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} while 迴圈語法結構`,
+          chineseDescription: `請填入前測試迴圈關鍵字 while，只要條件 (water < 100) 成立就重複執行大括號內的動作。`,
+          codeTemplate: `______(water < 100) {\n  water += 10;\n}`,
+          expectedAnswer: 'while',
+          hint: '英文的「當...時」。',
+          explanation: 'while 迴圈在每次進入迴圈體之前先檢查條件，為 true 時重複執行，直到為 false 為止。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 迴圈計數器條件遞增`,
+          chineseDescription: `在 while 迴圈內，必須遞增計數器以防死迴圈。請使用 ++ 運算子。`,
+          codeTemplate: `int i = 0;\nwhile (i < ${subLevel * 5}) {\n  work();\n  i______;\n}`,
+          expectedAnswer: '++',
+          hint: '遞增符號。',
+          explanation: '迴圈內部通常需要適當更新條件變數（如計數器 i++），確保迴圈最終會終止。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 累加器演算法 (Sum Accumulation)`,
+          chineseDescription: `使用 while 迴圈將數字累加到 total 變數中。請填入複合加法指定運算子。`,
+          codeTemplate: `int total = 0, n = 1;\nwhile (n <= 10) {\n  total ______ n;\n  n++;\n}`,
+          expectedAnswer: '+=',
+          hint: '加號接等號。',
+          explanation: 'total += n 是經典的累加模式，將每次迴圈的 n 值加進總和變數中。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 倒數計時 while 迴圈`,
+          chineseDescription: `從 10 倒數至 1，每次迴圈將計數器 count 遞減 1。請使用 -- 運算子。`,
+          codeTemplate: `int count = 10;\nwhile (count > 0) {\n  std::cout << count << " ";\n  count______;\n}`,
+          expectedAnswer: '--',
+          hint: '遞減運算子。',
+          explanation: '倒數迴圈透過 count-- 讓計數器逐漸靠近終止門檻 count > 0。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 哨兵終止值 (Sentinel) 迴圈`,
+          chineseDescription: `讀取使用者輸入，直到輸入 -1 才結束。請填入「不等於」運算子。`,
+          codeTemplate: `int input = 0;\nwhile (input ______ -1) {\n  std::cin >> input;\n}`,
+          expectedAnswer: '!=',
+          hint: '不等於符號。',
+          explanation: '以特定值（如 -1）作為結束訊號的輸入迴圈稱為哨兵迴圈 (Sentinel Loop)。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} cin 狀態作為 while 條件`,
+          chineseDescription: `持續讀取標準輸入直到遇到檔案結尾 (EOF)。請填寫 cin 物件。`,
+          codeTemplate: `int x;\nwhile (std::______ >> x) {\n  process(x);\n}`,
+          expectedAnswer: 'cin',
+          hint: '標準輸入串流。',
+          explanation: 'while (cin >> x) 會在成功讀入時回傳真，輸入結束或型態錯誤時回傳假並結束迴圈。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 數字位數拆解 (Digit Extraction)`,
+          chineseDescription: `取得正整數 num 的個位數，請使用取餘數運算子除以 10。`,
+          codeTemplate: `while (num > 0) {\n  int digit = num ______ 10;\n  num /= 10;\n}`,
+          expectedAnswer: '%',
+          hint: '取餘數運算子。',
+          explanation: 'num % 10 可以取出整數最後一位，num /= 10 則去掉最後一位，是位數拆解的經典技巧。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 累乘運算 (Product Accumulation)`,
+          chineseDescription: `計算階乘或連乘積時，使用累乘指定運算子 *=。`,
+          codeTemplate: `long long prod = 1, k = 1;\nwhile (k <= ${subLevel}) {\n  prod ______ k;\n  k++;\n}`,
+          expectedAnswer: '*=',
+          hint: '乘號接等號。',
+          explanation: 'prod *= k 代表 prod = prod * k，初始值必須為 1 而不能是 0。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 迴圈內強制跳出 break`,
+          chineseDescription: `當水位達到超標警戒線 100 時，強制立即跳離 while 迴圈。請填寫 break 關鍵字。`,
+          codeTemplate: `while (true) {\n  water += 5;\n  if (water >= 100) ______;\n}`,
+          expectedAnswer: 'break',
+          hint: '跳離關鍵字。',
+          explanation: '在無限迴圈 while(true) 中搭配 break 是常見的事件驅動迴圈設計模式。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} while 括號內布林條件`,
+          chineseDescription: `請填寫大於運算子 >，當存糧 stock 大於 0 時持續發放種子。`,
+          codeTemplate: `while (stock ______ 0) {\n  distribute_seed();\n  stock--;\n}`,
+          expectedAnswer: '>',
+          hint: '大於符號。',
+          explanation: 'while 條件式為真時執行迴圈，為假時立即終止。'
+        };
+      }
     }
-    case 4: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 編譯期型態自動推導 auto`,
-        chineseDescription: `請使用 C++11 引進的動態編譯期型態自動推導字，讓編譯器依據等號右側表達式自動解析變數 my_it 的靜態型態。`,
-        codeTemplate: `std::vector<int> vec;\n______ my_it = vec.begin();`,
-        expectedAnswer: 'auto',
-        hint: '自動。',
-        explanation: 'auto 關鍵字能在編譯期直接提取初值的靜態型態，省去了撰寫冗長模板或複雜迭代器類型的負擔，提升程式美感。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 7: 🚜 for 迴圈 (Levels 61 ～ 70) [高中核心]
+  // =========================================================================
+  if (fieldId >= 61 && fieldId <= 70) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 迴圈標準關鍵字`,
+          chineseDescription: `請填寫 C++ 用於三段式計數迴圈的關鍵字 for。`,
+          codeTemplate: `______(int i = 0; i < 10; i++) {\n  std::cout << i << " ";\n}`,
+          expectedAnswer: 'for',
+          hint: '固定次數迴圈關鍵字。',
+          explanation: 'for (初始化; 條件; 更新) 是最清晰、最常使用的固定次數迴圈語法。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 迴圈表頭宣告計數器型別`,
+          chineseDescription: `在 for 表頭宣告局部整數計數變數 i 的型態 int。`,
+          codeTemplate: `for (______ i = 1; i <= ${subLevel * 10}; i++) {\n  work();\n}`,
+          expectedAnswer: 'int',
+          hint: '整數型態。',
+          explanation: '在 for 迴圈初始化區塊宣告的變數，其生命週期只存在於該 for 迴圈內。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 迴圈正向走訪終止條件`,
+          chineseDescription: `欲執行剛好 ${subLevel * 5} 次（i 從 0 到 ${subLevel * 5 - 1}），請填寫小於關係運算子 <。`,
+          codeTemplate: `for (int i = 0; i ______ ${subLevel * 5}; i++) {\n  irrigate_plot(i);\n}`,
+          expectedAnswer: '<',
+          hint: '小於號。',
+          explanation: 'i 從 0 開始且 i < N 是程式設計中最標準的 0-based N 次走訪習慣。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 迴圈表頭計數器更新遞增`,
+          chineseDescription: `在 for 迴圈第三個區塊，每次迭代結束後將 i 遞增 1。請使用 ++ 運算子。`,
+          codeTemplate: `for (int i = 0; i < 20; i______) {\n  spray();\n}`,
+          expectedAnswer: '++',
+          hint: '遞增運算子。',
+          explanation: 'for 迴圈第三段為每次迴圈體執行完畢後觸發的更新語句。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 反向遞減 for 迴圈`,
+          chineseDescription: `從 100 倒數遞減到 0，每次減 1。請在更新段填寫遞減運算子 --。`,
+          codeTemplate: `for (int i = 100; i >= 0; i______) {\n  std::cout << i << "\\n";\n}`,
+          expectedAnswer: '--',
+          hint: '遞減運算子。',
+          explanation: '反向 for 迴圈將初始值設為最大值，條件設為 >= 下限，更新段使用 i--。'
+        };
+      }
+      case 6: {
+        const step = 2;
+        return {
+          id, fieldId,
+          title: `${prefix} 自訂步長跳躍走訪 +=`,
+          chineseDescription: `走訪所有偶數（i 每次增加 2），請填寫複合指定運算子 +=。`,
+          codeTemplate: `for (int i = 0; i <= 20; i ______ ${step}) {\n  std::cout << i << " ";\n}`,
+          expectedAnswer: '+=',
+          hint: '加號接等號。',
+          explanation: 'for 迴圈第三段不限於 i++，可使用 i += 2 等任意步長。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 等差級數 1 到 N 累加`,
+          chineseDescription: `在 for 迴圈內使用 sum 累加所有 i 值。請填入複合加法運算子。`,
+          codeTemplate: `int sum = 0;\nfor (int i = 1; i <= ${subLevel * 10}; i++) {\n  sum ______ i;\n}`,
+          expectedAnswer: '+=',
+          hint: '累加運算子。',
+          explanation: '透過 for 迴圈走訪 1~N 並執行 sum += i 即可計算出等差級數總和。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 階乘運算 n! 累乘`,
+          chineseDescription: `使用 for 迴圈計算階乘，請填入累乘運算子 *=。`,
+          codeTemplate: `long long fact = 1;\nfor (int i = 1; i <= ${subLevel}; i++) {\n  fact ______ i;\n}`,
+          expectedAnswer: '*=',
+          hint: '累乘運算子。',
+          explanation: '階乘運算以 1 為基底，每次迴圈將當前的 i 乘入累積變數中。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 偶數篩選取餘數檢查`,
+          chineseDescription: `在 for 迴圈內篩選偶數，請使用取餘數運算子 % 檢查 (i % 2 == 0)。`,
+          codeTemplate: `for (int i = 1; i <= 50; i++) {\n  if (i ______ 2 == 0) {\n    std::cout << i << " ";\n  }\n}`,
+          expectedAnswer: '%',
+          hint: '取餘數運算子。',
+          explanation: 'i % 2 == 0 是判斷整數是否為偶數的標準方法。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 表頭內分號分隔符`,
+          chineseDescription: `for 迴圈表頭的三個區段（初始化、條件、更新）之間，必須使用什麼標點符號分隔？`,
+          codeTemplate: `for (int i = 0______ i < 10; i++)`,
+          expectedAnswer: ';',
+          hint: '分號。',
+          explanation: 'for 迴圈的小括號內必須剛好有兩個分號 ; 用以區隔三個部分。'
+        };
+      }
     }
-    case 5: {
-      const varName = `heavy_vector_${fieldId}`;
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 移動語意資源轉移 move`,
-        chineseDescription: `請使用標準函式將現有的 ${varName} 強制轉換為「右值參照」，以觸發高效的移動建構（Move Construction），避免昂貴的記憶體拷貝。`,
-        codeTemplate: `std::vector<int> ${varName}(1000, 5);\nstd::vector<int> target = std::______(${varName});`,
-        expectedAnswer: 'move',
-        hint: '移動。',
-        explanation: 'std::move 會將左值強製轉為右值。這讓接受它的物件能直接掠奪（steal）原有的指標資源，避免了高昂的深度複製。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 8: ♻️ 迴圈進階 (Levels 71 ～ 80) [高中核心]
+  // =========================================================================
+  if (fieldId >= 71 && fieldId <= 80) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} do-while 後測試迴圈關鍵字 do`,
+          chineseDescription: `請填寫先執行一次迴圈體、後檢查條件的後測試迴圈起始關鍵字 do。`,
+          codeTemplate: `______ {\n  input_command();\n} while (is_invalid);`,
+          expectedAnswer: 'do',
+          hint: '英文「做」。',
+          explanation: 'do-while 迴圈保證迴圈體至少會被執行一次，非常適合用於輸入驗證或遊戲主選單。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} do-while 結尾條件 while`,
+          chineseDescription: `請填寫 do-while 迴圈在結尾檢查條件的關鍵字 while。`,
+          codeTemplate: `do {\n  render_frame();\n} ______(is_running);`,
+          expectedAnswer: 'while',
+          hint: '條件檢查關鍵字。',
+          explanation: 'do { ... } while (條件); 注意結尾必須有一個分號 ;。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 跳過當次迭代 continue`,
+          chineseDescription: `若遇壞果 (is_bad == true)，希望立即「跳過本次迴圈剩餘程式」直接進入下一輪，應使用什麼關鍵字？`,
+          codeTemplate: `for (int i = 0; i < total; i++) {\n  if (is_bad(i)) ______;\n  pack_fruit(i);\n}`,
+          expectedAnswer: 'continue',
+          hint: '繼續關鍵字。',
+          explanation: 'continue 會忽略當前迴圈體後續未執行的指令，直接跳往下一輪迭代。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 提早強制終止迴圈 break`,
+          chineseDescription: `若在庫存中找到目標種子，立即「強制跳離整個迴圈」，應使用什麼關鍵字？`,
+          codeTemplate: `for (int i = 0; i < n; i++) {\n  if (items[i] == target) {\n    found = true;\n    ______;\n  }\n}`,
+          expectedAnswer: 'break',
+          hint: '打斷關鍵字。',
+          explanation: 'break 會直接跳出最近一層的迴圈結構，不再執行後續任何迭代。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 雙重巢狀 for 迴圈外層`,
+          chineseDescription: `輸出二維幾何圖形時需要雙重迴圈。請在內層迴圈上方填入外層 for 關鍵字。`,
+          codeTemplate: `______(int r = 0; r < 5; r++) {\n  for (int c = 0; c < 5; c++) {\n    std::cout << "* ";\n  }\n  std::cout << "\\n";\n}`,
+          expectedAnswer: 'for',
+          hint: '迴圈關鍵字。',
+          explanation: '外層迴圈控制列 (Row)，內層迴圈控制行/欄 (Column)。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 九九乘法表雙迴圈矩陣`,
+          chineseDescription: `在九九乘法表內層迴圈中計算乘積 i * j。請填入乘法運算子。`,
+          codeTemplate: `for (int i = 1; i <= 9; i++) {\n  for (int j = 1; j <= 9; j++) {\n    std::cout << i << "x" << j << "=" << (i ______ j) << "\\t";\n  }\n  std::cout << "\\n";\n}`,
+          expectedAnswer: '*',
+          hint: '乘號。',
+          explanation: '九九乘法表是雙重迴圈的經典範例，外層代表被乘數，內層代表乘數。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 直角三角形幾何星星圖`,
+          chineseDescription: `印出高度為 5 的直角三角形時，第 r 列（從 1 到 5）應輸出 r 顆星星。請填寫內層條件運算子 <=。`,
+          codeTemplate: `for (int r = 1; r <= 5; r++) {\n  for (int c = 1; c ______ r; c++) {\n    std::cout << "*";\n  }\n  std::cout << "\\n";\n}`,
+          expectedAnswer: '<=',
+          hint: '小於等於號。',
+          explanation: '讓內層迴圈的上限相依於外層變數 r，即可輸出漸增長度的直角三角形。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} do-while 結尾分號`,
+          chineseDescription: `do-while 迴圈在小括號 while (條件) 之後，必須加上什麼符號作為語句結尾？`,
+          codeTemplate: `do {\n  work();\n} while (has_work)______`,
+          expectedAnswer: ';',
+          hint: '英文分號。',
+          explanation: '不同於一般 while，do-while 結構的最後必須以分號 ; 結尾。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 巢狀迴圈換行輸出`,
+          chineseDescription: `在內層迴圈每印完一列星星後，在外層迴圈輸出換行符號 '\\n'。`,
+          codeTemplate: `for (int i = 0; i < n; i++) {\n  for (int j = 0; j < n; j++) {\n    std::cout << "#";\n  }\n  std::cout << '______';\n}`,
+          expectedAnswer: '\\n',
+          hint: '換行字元。',
+          explanation: '每印完一整列 (Row) 後輸出換行符號，才能呈現出二維圖形排版。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 複合雙重迴圈矩陣走訪`,
+          chineseDescription: `宣告內層整數計數變數 j。請填入型態關鍵字 int。`,
+          codeTemplate: `for (int i = 0; i < 3; i++) {\n  for (______ j = 0; j < 3; j++) {\n    std::cout << "[" << i << "," << j << "] ";\n  }\n}`,
+          expectedAnswer: 'int',
+          hint: '整數型態。',
+          explanation: '雙重迴圈通常習慣以外層 i、內層 j 作為獨立的計數變數。'
+        };
+      }
     }
-    case 6: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 獨佔智慧指標 unique_ptr`,
-        chineseDescription: `宣告一個超載範圍即自動釋放、不可拷貝、獨佔記憶體所有權的 RAII 智慧指標。`,
-        codeTemplate: `std::______<double> single_moisture_tracker(new double(99.4));`,
-        expectedAnswer: 'unique_ptr',
-        hint: '唯一的、單一的智慧指標。',
-        explanation: 'std::unique_ptr 是獨佔智慧指標，徹底杜絕了拷貝操作。超出作用域時，它會在解構子中主動執行 delete 釋放記憶體。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 9: 🌾 一維陣列 (Levels 81 ～ 90) [高中核心]
+  // =========================================================================
+  if (fieldId >= 81 && fieldId <= 90) {
+    switch (cardIndex) {
+      case 1: {
+        const size = subLevel * 5 + 5;
+        return {
+          id, fieldId,
+          title: `${prefix} 一維靜態陣列宣告`,
+          chineseDescription: `宣告一個可存放 ${size} 個整數的靜態一維陣列 scores。請在方括號中填入陣列大小。`,
+          codeTemplate: `int scores[______];`,
+          expectedAnswer: `${size}`,
+          hint: `本題要求的大小為 ${size}。`,
+          explanation: 'C++ 靜態陣列宣告語法為 型別 陣列名[大小];，大小必須為常數整數。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列 0-based 索引首元素`,
+          chineseDescription: `C++ 陣列索引（Index）由 0 開始。存取陣列 farm_plots 的第一個元素應傳入哪個索引？`,
+          codeTemplate: `int first_plot = farm_plots[______];`,
+          expectedAnswer: '0',
+          hint: '數字零。',
+          explanation: 'C++ 陣列的第一個元素下標為 0，最後一個元素下標為 N-1。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列大括號初始化清單`,
+          chineseDescription: `在宣告陣列時同時賦予初值，應使用大括號清單。請補齊起始大括號 {。`,
+          codeTemplate: `int yields[5] = ______10, 20, 30, 40, 50};`,
+          expectedAnswer: '{',
+          hint: '左大括號。',
+          explanation: '陣列初始化使用大括號清單 {v1, v2, ...}，未填寫的元素會自動補零。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} for 迴圈走訪陣列`,
+          chineseDescription: `使用 for 迴圈走訪長度為 N 的陣列，存取當前第 i 個元素。請在方括號中填入索引變數 i。`,
+          codeTemplate: `for (int i = 0; i < N; i++) {\n  std::cout << data[______] << " ";\n}`,
+          expectedAnswer: 'i',
+          hint: '計數器變數名稱。',
+          explanation: 'data[i] 代表陣列中第 i 個元素，配合 for 迴圈能逐一處理每個數據。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列元素總和累加`,
+          chineseDescription: `將陣列元素 values[i] 累加至 sum。請填寫複合加法指定運算子。`,
+          codeTemplate: `int sum = 0;\nfor (int i = 0; i < N; i++) {\n  sum ______ values[i];\n}`,
+          expectedAnswer: '+=',
+          hint: '累加運算子。',
+          explanation: '走訪陣列並透過 sum += values[i] 是計算陣列總和與平均值的基本公式。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 尋找陣列最大值`,
+          chineseDescription: `若當前元素 arr[i] 大於目前紀錄的最大值 max_val，則更新 max_val。請填入大於運算子 >。`,
+          codeTemplate: `int max_val = arr[0];\nfor (int i = 1; i < N; i++) {\n  if (arr[i] ______ max_val) {\n    max_val = arr[i];\n  }\n}`,
+          expectedAnswer: '>',
+          hint: '大於號。',
+          explanation: '將最大值初始值設為首元素 arr[0]，逐一比較更新即可找到全域最大值。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 尋找陣列最小值`,
+          chineseDescription: `若當前元素 arr[i] 小於目前紀錄的最小值 min_val，則更新 min_val。請填入小於運算子 <。`,
+          codeTemplate: `int min_val = arr[0];\nfor (int i = 1; i < N; i++) {\n  if (arr[i] ______ min_val) {\n    min_val = arr[i];\n  }\n}`,
+          expectedAnswer: '<',
+          hint: '小於號。',
+          explanation: '同理，若 arr[i] < min_val 則覆寫 min_val 為更小的新數值。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列索引下標方括號`,
+          chineseDescription: `存取陣列元素使用的運算子符號是一對什麼括號？`,
+          codeTemplate: `int val = array______3];`,
+          expectedAnswer: '[',
+          hint: '左中括號/方括號。',
+          explanation: 'C++ 使用方括號 [] 作為陣列下標存取運算子（Subscript Operator）。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列元素前後對調 (Swap)`,
+          chineseDescription: `反轉陣列時，將索引 i 與 j 的兩元素交換，可使用標準庫的哪個函式？`,
+          codeTemplate: `std::______(arr[i], arr[j]);`,
+          expectedAnswer: 'swap',
+          hint: '交換英文單字。',
+          explanation: 'std::swap(a, b) 能快速且安全地交換兩個變數或陣列元素的值。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列末元素索引 N-1`,
+          chineseDescription: `長度為 10 的陣列，最後一個合法元素的索引是幾？`,
+          codeTemplate: `int last_item = arr[______];`,
+          expectedAnswer: '9',
+          hint: '10 減 1。',
+          explanation: '長度為 N 的陣列，索引範圍固定為 0 ~ N-1。存取 arr[N] 會造成越界錯誤 (Out of Bounds)。'
+        };
+      }
     }
-    case 7: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 共享計數智慧指標 shared_ptr`,
-        chineseDescription: `宣告一個內部具備多型引用計數（Reference Counting）、允許多指針共享同一個對象所有權的智慧指標。`,
-        codeTemplate: `std::______<std::string> shared_log_system;`,
-        expectedAnswer: 'shared_ptr',
-        hint: '分享的、共用的智慧指標。',
-        explanation: 'std::shared_ptr 透過共享所有權來管理物件。每次拷貝會增加引用計數，最後一個指針釋放時，才會執行記憶體清空。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 10: 🗺️ 二維陣列 (Levels 91 ～ 100) [高中核心]
+  // =========================================================================
+  if (fieldId >= 91 && fieldId <= 100) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二維陣列宣告與維度`,
+          chineseDescription: `宣告一個 4 列（Rows）5 欄（Columns）的二維整數陣列 farm_grid。請在第一個方括號填入列數 4。`,
+          codeTemplate: `int farm_grid[______][5];`,
+          expectedAnswer: '4',
+          hint: '列數 4。',
+          explanation: '二維陣列宣告格式為 型別 名稱[列數][欄數];。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二維陣列雙下標存取`,
+          chineseDescription: `存取第 r 列、第 c 欄的格子，第二個維度方括號內應填入哪個變數？`,
+          codeTemplate: `int cell = matrix[r][______];`,
+          expectedAnswer: 'c',
+          hint: '欄變數 c。',
+          explanation: 'matrix[r][c] 分別定位列與欄，依序解構二維平面座標。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二維陣列巢狀初始化`,
+          chineseDescription: `二維陣列在定義時可使用巢狀大括號。請補齊起始大括號 {。`,
+          codeTemplate: `int grid[2][2] = ______\n  {1, 2},\n  {3, 4}\n};`,
+          expectedAnswer: '{',
+          hint: '左大括號。',
+          explanation: '二維陣列使用外層大括號包覆各列的內層大括號進行初始化。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 雙迴圈走訪全矩陣`,
+          chineseDescription: `使用外層 r、內層 c 兩重 for 迴圈走訪整張地圖。請填入內層 for 關鍵字。`,
+          codeTemplate: `for (int r = 0; r < R; r++) {\n  ______(int c = 0; c < C; c++) {\n    process(grid[r][c]);\n  }\n}`,
+          expectedAnswer: 'for',
+          hint: '迴圈關鍵字。',
+          explanation: '外層遍歷所有列，內層遍歷該列中的每一欄，完成全矩陣遍歷。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 計算單一列總和 Row Sum`,
+          chineseDescription: `計算固定第 r 列的所有元素總和，累加 grid[r][c]。請填寫累加運算子 +=。`,
+          codeTemplate: `int row_sum = 0;\nfor (int c = 0; c < C; c++) {\n  row_sum ______ grid[r][c];\n}`,
+          expectedAnswer: '+=',
+          hint: '累加運算子。',
+          explanation: '固定第一個下標 r 並迭代第二個下標 c，即可算出特定橫列的加總。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 計算單一欄總和 Column Sum`,
+          chineseDescription: `計算固定第 c 欄的所有元素總和，迭代列變數 r。請補齊列下標 r。`,
+          codeTemplate: `int col_sum = 0;\nfor (int r = 0; r < R; r++) {\n  col_sum += grid[______][c];\n}`,
+          expectedAnswer: 'r',
+          hint: '列索引 r。',
+          explanation: '固定第二個下標 c 並迭代第一個下標 r，即可算出特定直欄的垂直加總。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 正方形矩陣主對角線走訪`,
+          chineseDescription: `在 N×N 方陣中，主對角線上的元素列索引與欄索引相等 (r == c)。請在第二個下標填入 i。`,
+          codeTemplate: `for (int i = 0; i < N; i++) {\n  std::cout << matrix[i][______] << " ";\n}`,
+          expectedAnswer: 'i',
+          hint: '下標變數 i。',
+          explanation: 'matrix[i][i] 即為方陣的主對角線 (Main Diagonal) 元素。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 矩陣轉置 (Transpose) 賦值`,
+          chineseDescription: `轉置矩陣會將 (r, c) 的元素放置於新矩陣的 (c, r) 位置。請填寫原矩陣欄下標 c。`,
+          codeTemplate: `transposed[c][r] = original[r][______];`,
+          expectedAnswer: 'c',
+          hint: '原欄下標 c。',
+          explanation: '矩陣轉置即為列與欄互換，即 B[j][i] = A[i][j]。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 4-方向相鄰格子偏移量陣列`,
+          chineseDescription: `上下左右 4 方向偏移量常用 dx 與 dy 陣列表示。請在宣告時填入型態 int。`,
+          codeTemplate: `______ dx[4] = {-1, 1, 0, 0};\nint dy[4] = {0, 0, -1, 1};`,
+          expectedAnswer: 'int',
+          hint: '整數型態。',
+          explanation: '使用 dx/dy 陣列配合迴圈可優雅走訪相鄰的上下左右相鄰格子。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二維邊界安全檢查`,
+          chineseDescription: `檢查列座標 nr 是否在合法範圍 (nr >= 0 且 nr < R)。請填寫邏輯且運算子 &&。`,
+          codeTemplate: `if (nr >= 0 ______ nr < R && nc >= 0 && nc < C) {\n  visit(grid[nr][nc]);\n}`,
+          expectedAnswer: '&&',
+          hint: '邏輯且運算子。',
+          explanation: '二維陣列座標計算後務必進行邊界安全檢查，避免記憶體越界當機。'
+        };
+      }
     }
-    case 8: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 強制編譯期常數 constexpr`,
-        chineseDescription: `使用 C++11 引進的關鍵字，保證變數或是函式 calculate_${fieldId}() 必須在「編譯期（Compile-time）」就計算出常數結果。`,
-        codeTemplate: `______ int get_max_seeds() { return ${step * 25 + 10}; }`,
-        expectedAnswer: 'constexpr',
-        hint: 'Constant Expression 的縮寫組合。',
-        explanation: 'constexpr 是編譯期常量修飾。被它修飾的函數如果傳入編譯期已知的值，編譯器將直接優化計算結果，零運行期成本。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 11: 🔤 字串 (Levels 101 ～ 110) [高中進階]
+  // =========================================================================
+  if (fieldId >= 101 && fieldId <= 110) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 引入標準字串標頭檔`,
+          chineseDescription: `使用 C++ 標準字串 std::string 類別時，必須在開頭引入哪個標頭檔？`,
+          codeTemplate: `#include <______>`,
+          expectedAnswer: 'string',
+          hint: '字串英文單字。',
+          explanation: '#include <string> 提供 std::string 類別與豐富的字串操作方法。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 取得字串長度 length()`,
+          chineseDescription: `請呼叫字串物件 s 的長度成員函式 length()。`,
+          codeTemplate: `std::string s = "OrganicCrop";\nint len = s.______();`,
+          expectedAnswer: 'length',
+          hint: '長度英文單字。',
+          explanation: 's.length() 或 s.size() 能返回該字串包含的字元總數。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 字串字元索引下標存取`,
+          chineseDescription: `存取字串 s 的第一個字元，請在方括號內填入首字元索引 0。`,
+          codeTemplate: `char first_char = s[______];`,
+          expectedAnswer: '0',
+          hint: '數字零。',
+          explanation: 'std::string 支援如陣列般的下標存取運算子 []，索引從 0 開始。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 字串直接串接拼接運算子 +`,
+          chineseDescription: `在 C++ 中，直接使用哪個算術運算子即可將兩個字串快速串接（Concatenate）？`,
+          codeTemplate: `std::string full_name = first_name ______ " " + last_name;`,
+          expectedAnswer: '+',
+          hint: '加號。',
+          explanation: 'std::string 多載了 + 與 += 運算子，能直覺地將兩個字串連接在一起。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 數字字元檢查 isdigit()`,
+          chineseDescription: `判斷單一字元 ch 是否為 '0'~'9' 的數字字元，應呼叫哪個標準函式？`,
+          codeTemplate: `if (______(ch)) {\n  std::cout << "是數字字元";\n}`,
+          expectedAnswer: 'isdigit',
+          hint: 'Is Digit 縮寫。',
+          explanation: 'isdigit(ch) 檢查字元是否為數字，若真返回非零值，若偽返回 0。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 轉大寫函式 toupper()`,
+          chineseDescription: `將小寫英文字元轉換為大寫，應使用哪個標準函式？`,
+          codeTemplate: `char upper_ch = ______(ch);`,
+          expectedAnswer: 'toupper',
+          hint: 'To Upper 縮寫。',
+          explanation: 'toupper(ch) 會將英文字元轉為對應的大寫形式。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 擷取子字串 substr()`,
+          chineseDescription: `從字串 s 的位置 0 開始擷取長度為 4 的子字串。請填寫成員函式名稱 substr。`,
+          codeTemplate: `std::string sub = s.______(0, 4);`,
+          expectedAnswer: 'substr',
+          hint: 'Sub-string 縮寫。',
+          explanation: 's.substr(pos, count) 自指定索引開始擷取指定長度的子字串。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 搜尋子字串 find()`,
+          chineseDescription: `搜尋字串中是否存在子字串 "C++"，請呼叫成員函式 find。`,
+          codeTemplate: `size_t pos = s.______("C++");`,
+          expectedAnswer: 'find',
+          hint: '尋找英文單字。',
+          explanation: 's.find(target) 回傳目標首次出現的下標索引；若找不到則回傳 string::npos。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 未找到常數 string::npos`,
+          chineseDescription: `當 find() 找不到目標時會回傳特殊常數 string::npos。請補齊常數名稱 npos。`,
+          codeTemplate: `if (s.find("pest") == std::string::______) {\n  std::cout << "安全，無蟲害";\n}`,
+          expectedAnswer: 'npos',
+          hint: 'No Position 縮寫。',
+          explanation: 'std::string::npos 代表找不到相符字元的最大無號整數值。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 字串相等字典序比較`,
+          chineseDescription: `比較兩個字串內容是否完全相等，直接使用相等運算子 ==。`,
+          codeTemplate: `if (password ______ "admin123") {\n  grant_access();\n}`,
+          expectedAnswer: '==',
+          hint: '連續兩個等號。',
+          explanation: 'std::string 多載了 ==, !=, <, > 運算子，可以直接以字典序進行比較。'
+        };
+      }
     }
-    case 9: {
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 異常安全 try 捕獲防線`,
-        chineseDescription: `請寫出用來劃定「可能拋出異常 exception」之防護代碼區域的關鍵字。`,
-        codeTemplate: `______ {\n  irrigate_or_throw();\n} catch (const std::exception& e) {\n  log_error();\n}`,
-        expectedAnswer: 'try',
-        hint: '嘗試。',
-        explanation: 'try 關鍵字引導異常安全保護區，在該代碼體內發生的任何 throw 異常，都會順次交由其後的 catch 模組捕獲處理。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 12: 🧩 函式 (Levels 111 ～ 120) [高中進階]
+  // =========================================================================
+  if (fieldId >= 111 && fieldId <= 120) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 自訂函式回傳型別宣告`,
+          chineseDescription: `定義一個計算兩整數總和並回傳整數的函式 add。請填入回傳型別 int。`,
+          codeTemplate: `______ add(int a, int b) {\n  return a + b;\n}`,
+          expectedAnswer: 'int',
+          hint: '整數型態。',
+          explanation: '自訂函式必須在函式名稱前方明確標明其計算結果的回傳值型別。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 無回傳值副程式 void`,
+          chineseDescription: `定義一個只負責在螢幕印出訊息、不需回傳任何數值的函式 print_welcome。請填寫型別 void。`,
+          codeTemplate: `______ print_welcome() {\n  std::cout << "歡迎光臨 C++ 良田！\\n";\n}`,
+          expectedAnswer: 'void',
+          hint: '虛無/空型態。',
+          explanation: 'void 代表空型態，表示此函式不回傳任何數據。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 函式數值回傳關鍵字 return`,
+          chineseDescription: `在函式計算完成後，使用什麼關鍵字將數值回傳給呼叫端？`,
+          codeTemplate: `double calc_area(double r) {\n  ______ 3.14159 * r * r;\n}`,
+          expectedAnswer: 'return',
+          hint: '回傳英文關鍵字。',
+          explanation: 'return 語句結束函式的執行，並將右側表達式的值傳回呼叫點。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 函式呼叫與引數傳遞`,
+          chineseDescription: `呼叫函式 calculate_yield 並傳入參數 10 與 20。請填入函式名稱。`,
+          codeTemplate: `int result = ______________(10, 20);`,
+          expectedAnswer: 'calculate_yield',
+          hint: '函式名稱 calculate_yield。',
+          explanation: '函式呼叫語法為 函式名(引數1, 引數2, ...);。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 判斷質數之布林回傳函式`,
+          chineseDescription: `宣告一個檢查某數是否為質數的函式 is_prime。其回傳型別應為布林型態 bool。`,
+          codeTemplate: `______ is_prime(int n) {\n  if (n <= 1) return false;\n  return true;\n}`,
+          expectedAnswer: 'bool',
+          hint: '布林型態。',
+          explanation: '作為條件檢查的輔助函式，通常宣告為 bool 回傳型態（回傳 true 或 false）。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 傳值呼叫 (Pass by Value) 特性`,
+          chineseDescription: `C++ 預設為傳值呼叫，形參只是實參的複本。宣告一般整數參數 x 的型態 int。`,
+          codeTemplate: `void modify(______ x) {\n  x += 10; // 不會影響呼叫端的外部變數\n}`,
+          expectedAnswer: 'int',
+          hint: '一般整數型態。',
+          explanation: 'Pass by value 會複製一份數據傳入函式內部，函式內的修改不會干擾外部實參。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 函式原型宣告 (Prototype)`,
+          chineseDescription: `若函式定義於 main 之後，需在 main 之前撰寫原型宣告並以什麼標點符號結尾？`,
+          codeTemplate: `int multiply(int x, int y)______`,
+          expectedAnswer: ';',
+          hint: '英文分號。',
+          explanation: '函式原型宣告通知編譯器函式的簽名，必須以分號 ; 結尾。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} void 函式提早中斷`,
+          chineseDescription: `在 void 函式中，若遇到錯誤想提早結束執行，可單獨使用 return 關鍵字。`,
+          codeTemplate: `void process_order(int stock) {\n  if (stock <= 0) ______;\n  ship_item();\n}`,
+          expectedAnswer: 'return',
+          hint: '返回關鍵字。',
+          explanation: '在 void 函式中使用單獨的 return; 可以立即終止該函式執行並返回。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 區域變數 (Local Variable) 作用域`,
+          chineseDescription: `在函式內部宣告的變數稱為區域變數。請填寫宣告型別 int。`,
+          codeTemplate: `void compute() {\n  ______ local_counter = 0;\n}`,
+          expectedAnswer: 'int',
+          hint: '整數型態。',
+          explanation: '區域變數僅在宣告它的大括號作用域 { ... } 內有效，函式結束時自動銷毀。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 函式多參數逗號分隔`,
+          chineseDescription: `在函式參數列中，多個參數之間必須使用什麼標點符號分隔？`,
+          codeTemplate: `void set_farm_status(int moisture______ int temperature) { }`,
+          expectedAnswer: ',',
+          hint: '英文逗號。',
+          explanation: '函式參數清單中使用逗號 , 分隔多個輸入參數。'
+        };
+      }
     }
-    case 10: {
-      const bytes = (step % 3) === 0 ? 8 : 4;
-      return {
-        id, fieldId,
-        title: `[LV.10 現代語法] #${fieldId} 編譯期斷言檢驗`,
-        chineseDescription: `C++11 引入的「編譯期靜態斷言（Static Assertion）」，用以確保當前環境指針寬度必須為 8 位元組（64位元）。`,
-        codeTemplate: `______(sizeof(void*) == ${bytes}, "必須是 64 位元作業環境！");`,
-        expectedAnswer: 'static_assert',
-        hint: '靜態斷言，利用底線連接。',
-        explanation: 'static_assert 是編譯期斷言。當條件在編譯階段判定為 false 時，編譯會立刻終止並輸出自定義的警告文本，完全不干預運行。'
-      };
+  }
+
+  // =========================================================================
+  // CHAPTER 13: 🧠 演算法入門 (Levels 121 ～ 130) [延伸／競賽入門]
+  // =========================================================================
+  if (fieldId >= 121 && fieldId <= 130) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 引入標準演算法標頭檔`,
+          chineseDescription: `使用 std::sort、std::max 等常用演算法時，必須引入哪個標頭檔？`,
+          codeTemplate: `#include <__________>`,
+          expectedAnswer: 'algorithm',
+          hint: '演算法英文單字。',
+          explanation: '#include <algorithm> 是 C++ STL 中最核心的演算法函式庫。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 兩變數數值交換 std::swap`,
+          chineseDescription: `請呼叫標準演算法庫中的 swap 函式交換變數 a 與 b 的數值。`,
+          codeTemplate: `std::______(a, b);`,
+          expectedAnswer: 'swap',
+          hint: '交換英文單字。',
+          explanation: 'std::swap(a, b) 能高效交換兩個變數的內容。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 陣列升冪快速排序 std::sort`,
+          chineseDescription: `對一維陣列 arr（大小為 N）進行升冪排序，請填寫演算法名稱 sort。`,
+          codeTemplate: `std::______(arr, arr + N);`,
+          expectedAnswer: 'sort',
+          hint: '排序英文單字。',
+          explanation: 'std::sort(開始指標, 結束指標) 底層採用混合內省排序 (Introsort)，平均時間複雜度為 O(N log N)。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 快速求取兩者較大值 std::max`,
+          chineseDescription: `比較數值 x 與 y 並回傳兩者中較大的一個，應呼叫哪個函式？`,
+          codeTemplate: `int larger = std::______(x, y);`,
+          expectedAnswer: 'max',
+          hint: 'Maximum 縮寫。',
+          explanation: 'std::max(a, b) 回傳 a 與 b 中的較大者。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 快速求取兩者較小值 std::min`,
+          chineseDescription: `比較數值 x 與 y 並回傳兩者中較小的一個，應呼叫哪個函式？`,
+          codeTemplate: `int smaller = std::______(x, y);`,
+          expectedAnswer: 'min',
+          hint: 'Minimum 縮寫。',
+          explanation: 'std::min(a, b) 回傳 a 與 b 中的較小者。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 降冪排序比較子 std::greater`,
+          chineseDescription: `欲使用 std::sort 進行由大到小的降冪排序，應傳入第三個比較參數 greater<int>()。`,
+          codeTemplate: `std::sort(arr, arr + N, std::______<int>());`,
+          expectedAnswer: 'greater',
+          hint: '更大/大於英文單字。',
+          explanation: 'std::greater<T>() 比較器會使 std::sort 依照降冪排列。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 線性循序搜尋法 (Linear Search)`,
+          chineseDescription: `在陣列中逐一比對每個元素是否等於目標 target。請填寫相等運算子 ==。`,
+          codeTemplate: `int find_index = -1;\nfor (int i = 0; i < N; i++) {\n  if (arr[i] ______ target) {\n    find_index = i;\n    break;\n  }\n}`,
+          expectedAnswer: '==',
+          hint: '相等運算子。',
+          explanation: '線性搜尋從頭到尾遍歷陣列，時間複雜度為 O(N)。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 尋找區間最大元素指標 max_element`,
+          chineseDescription: `尋找陣列中最大元素的記憶體位置，應使用演算法 max_element。`,
+          codeTemplate: `int* max_ptr = std::____________(arr, arr + N);`,
+          expectedAnswer: 'max_element',
+          hint: '最大元素英文。',
+          explanation: 'std::max_element 回傳指向範圍內最大元素的迭代器或指標。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 二分搜尋前置條件（必須已排序）`,
+          chineseDescription: `在進行二分搜尋 (Binary Search, O(log N)) 之前，陣列必須先經過什麼處理？`,
+          codeTemplate: `std::______(arr, arr + N);\nbool exists = std::binary_search(arr, arr + N, target);`,
+          expectedAnswer: 'sort',
+          hint: '排序函式。',
+          explanation: '二分搜尋法要求資料必須是有序的（Monotonic / Sorted）。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 計數統計次數陣列 (Bucket Counting)`,
+          chineseDescription: `利用分數作為索引統計出現次數，將 count_arr[score] 增加 1。`,
+          codeTemplate: `count_arr[score]______;`,
+          expectedAnswer: '++',
+          hint: '遞增運算子。',
+          explanation: '計數排序/桶子法以數值本身作為下標進行 O(1) 頻率累加。'
+        };
+      }
+    }
+  }
+
+  // =========================================================================
+  // CHAPTER 14: 📚 STL 與資料結構 (Levels 131 ～ 140) [自學延伸]
+  // =========================================================================
+  if (fieldId >= 131 && fieldId <= 140) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 引入動態陣列 vector 標頭檔`,
+          chineseDescription: `使用 C++ 最常用的動態長度陣列容器 vector 時，應引入哪個標頭檔？`,
+          codeTemplate: `#include <______>`,
+          expectedAnswer: 'vector',
+          hint: '向量/動態陣列英文單字。',
+          explanation: '#include <vector> 提供自動管理記憶體容量的動態陣列容器。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 動態陣列 vector 宣告`,
+          chineseDescription: `宣告一個存放整數的動態陣列 items。請填寫容器關鍵字 vector。`,
+          codeTemplate: `std::______<int> items;`,
+          expectedAnswer: 'vector',
+          hint: '動態陣列容器名。',
+          explanation: 'std::vector<T> 是 C++ STL 中最推薦使用的通用循序容器。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 尾端加入元素 push_back()`,
+          chineseDescription: `向 vector 容器的尾端新增一個元素 ${subLevel * 10}，應呼叫哪個成員函式？`,
+          codeTemplate: `items.____________(${subLevel * 10});`,
+          expectedAnswer: 'push_back',
+          hint: '推入尾端英文名稱。',
+          explanation: 'v.push_back(val) 將元素加入 vector 尾端，並在空間不足時自動重新配置兩倍記憶體。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 取得容器元素個數 size()`,
+          chineseDescription: `取得 vector 當前包含的元素總數，應呼叫成員函式 size()。`,
+          codeTemplate: `int count = items.______();`,
+          expectedAnswer: 'size',
+          hint: '大小英文單字。',
+          explanation: 'v.size() 回傳當前實際存放的元素個數。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 檢查容器是否為空 empty()`,
+          chineseDescription: `檢查 vector 是否為空（元素個數是否為 0），應呼叫哪個成員函式？`,
+          codeTemplate: `if (items.______()) {\n  std::cout << "背包是空的";\n}`,
+          expectedAnswer: 'empty',
+          hint: '空的英文單字。',
+          explanation: 'v.empty() 回傳 bool 值，若容器內沒有元素則為 true。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 清空所有元素 clear()`,
+          chineseDescription: `將 vector 內的所有元素全部清空移除，應呼叫哪個成員函式？`,
+          codeTemplate: `items.______();`,
+          expectedAnswer: 'clear',
+          hint: '清除/清空英文單字。',
+          explanation: 'v.clear() 會移除 vector 內的所有元素，使 size() 變為 0。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 現代 C++ 範圍迴圈 (Range-based for)`,
+          chineseDescription: `使用現代 C++ 的 Range-based for 逐一取出 vector 內的每個元素 x。請填寫冒號 :。`,
+          codeTemplate: `for (int x ______ items) {\n  std::cout << x << " ";\n}`,
+          expectedAnswer: ':',
+          hint: '英文冒號。',
+          explanation: 'for (auto x : container) 是 C++11 引進的範圍迴圈，能優雅走訪任何 STL 容器。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} Vector 排序起點迭代器 begin()`,
+          chineseDescription: `使用 std::sort 對 vector 進行排序時，應傳入開頭迭代器 v.begin() 與結尾迭代器 v.end()。`,
+          codeTemplate: `std::sort(items.______(), items.end());`,
+          expectedAnswer: 'begin',
+          hint: '開始英文單字。',
+          explanation: 'v.begin() 回傳指向 vector 第一個元素的迭代器 (Iterator)。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 雙元素組合容器 std::pair`,
+          chineseDescription: `宣告一個同時綁定整數（編號）與字串（名稱）的雙值對 pair。`,
+          codeTemplate: `std::______<int, std::string> crop_record;`,
+          expectedAnswer: 'pair',
+          hint: '配對/一雙英文單字。',
+          explanation: 'std::pair<T1, T2> 將兩個不同型別的數據組合成單一物件。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} Pair 第一個元素存取 .first`,
+          chineseDescription: `存取 pair 物件 p 的第一個資料成員，應使用哪一個成員名稱？`,
+          codeTemplate: `std::cout << "作物編號: " << crop_record.______;`,
+          expectedAnswer: 'first',
+          hint: '第一英文單字。',
+          explanation: 'std::pair 具有兩個 public 成員變數：.first 與 .second。'
+        };
+      }
+    }
+  }
+
+  // =========================================================================
+  // CHAPTER 15: 🚀 真正的 C++ 延伸 (Levels 141 ～ 150) [自學延伸]
+  // =========================================================================
+  if (fieldId >= 141 && fieldId <= 150) {
+    switch (cardIndex) {
+      case 1: {
+        return {
+          id, fieldId,
+          title: `${prefix} 參照宣告 Reference &`,
+          chineseDescription: `宣告一個變數 x 的參照（別名）ref_x。請填入參照宣告符號 &。`,
+          codeTemplate: `int x = 100;\nint______ ref_x = x;`,
+          expectedAnswer: '&',
+          hint: 'And 符號。',
+          explanation: 'int& ref = x 代表 ref 是 x 的參照別名，修改 ref_x 就等同於修改本體 x。'
+        };
+      }
+      case 2: {
+        return {
+          id, fieldId,
+          title: `${prefix} 傳參照呼叫 (Pass by Reference)`,
+          chineseDescription: `在函式參數中加上 & 符號，即可直接修改外部傳入的實參（如實作交換函式）。`,
+          codeTemplate: `void custom_swap(int______ a, int& b) {\n  int temp = a; a = b; b = temp;\n}`,
+          expectedAnswer: '&',
+          hint: '參照符號。',
+          explanation: 'Pass by reference 避免了複製成本，並允許函式直接修改外部傳入的變數本體。'
+        };
+      }
+      case 3: {
+        return {
+          id, fieldId,
+          title: `${prefix} 指標變數取位址運算子 &`,
+          chineseDescription: `取得變數 value 的記憶體位址並存入指標 ptr 中，應在 value 前加上什麼運算子？`,
+          codeTemplate: `int value = 42;\nint* ptr = ______value;`,
+          expectedAnswer: '&',
+          hint: '取位址符號。',
+          explanation: '& 運算子用於取出變數在記憶體中的十六進位位址 (Address-of Operator)。'
+        };
+      }
+      case 4: {
+        return {
+          id, fieldId,
+          title: `${prefix} 指標反參考取值運算子 *`,
+          chineseDescription: `透過指標 ptr 取出它所指向的記憶體位置之實際數值（Dereference）。`,
+          codeTemplate: `int real_value = ______ptr;`,
+          expectedAnswer: '*',
+          hint: '星號。',
+          explanation: '*ptr 為反參考（Dereference）運算，順著指標位址讀取或寫入真正的資料。'
+        };
+      }
+      case 5: {
+        return {
+          id, fieldId,
+          title: `${prefix} 結構體自訂複合型態 struct`,
+          chineseDescription: `定義一個包含名稱與價格的自訂作物資料結構。請填寫關鍵字 struct。`,
+          codeTemplate: `______ CropItem {\n  std::string name;\n  int price;\n};`,
+          expectedAnswer: 'struct',
+          hint: '結構體英文關鍵字。',
+          explanation: 'struct 允許開發者將多個不同型態的資料欄位打包成一個自訂型態。'
+        };
+      }
+      case 6: {
+        return {
+          id, fieldId,
+          title: `${prefix} 物件導向類別 class`,
+          chineseDescription: `定義一個物件導向類別 FarmManager。請填寫關鍵字 class。`,
+          codeTemplate: `______ FarmManager {\npublic:\n  void auto_irrigate();\n};`,
+          expectedAnswer: 'class',
+          hint: '類別英文關鍵字。',
+          explanation: 'class 是 C++ 物件導向程式設計（OOP）的核心，預設成員權限為 private。'
+        };
+      }
+      case 7: {
+        return {
+          id, fieldId,
+          title: `${prefix} 類別公開成員權限 public`,
+          chineseDescription: `在 class 內部標示外部程式碼可以直接存取的公有成員區域。請填寫權限關鍵字 public。`,
+          codeTemplate: `class Garden {\n______:\n  int flower_count;\n};`,
+          expectedAnswer: 'public',
+          hint: '公開英文單字。',
+          explanation: 'public 宣告其後的成員為公開權限，類別外部的所有程式碼皆可自由調用。'
+        };
+      }
+      case 8: {
+        return {
+          id, fieldId,
+          title: `${prefix} 自動型別推導 auto`,
+          chineseDescription: `讓編譯器依據右側初始化表達式自動推導變數型態（C++11 特性）。請填寫關鍵字 auto。`,
+          codeTemplate: `______ current_time = std::chrono::system_clock::now();`,
+          expectedAnswer: 'auto',
+          hint: '自動英文單字。',
+          explanation: 'auto 關鍵字讓編譯器在編譯期自動判定並推導變數的型態，大幅簡化複雜型別撰寫。'
+        };
+      }
+      case 9: {
+        return {
+          id, fieldId,
+          title: `${prefix} 匿名函式 Lambda 表達式`,
+          chineseDescription: `C++11 支援在程式碼中就地撰寫匿名函式 Lambda。請填寫 Lambda 補捉引導中括號 []。`,
+          codeTemplate: `auto print_msg = ______() {\n  std::cout << "Lambda 執行完畢！\\n";\n};`,
+          expectedAnswer: '[]',
+          hint: '一對中括號。',
+          explanation: '[] (params) { body } 是 C++11 Lambda 表達式語法，中括號為變數捕獲列表。'
+        };
+      }
+      case 10: {
+        return {
+          id, fieldId,
+          title: `${prefix} 關聯字典容器 std::map`,
+          chineseDescription: `宣告一個以作物名稱（string）映射到庫存數量（int）的關聯容器 map。`,
+          codeTemplate: `std::______<std::string, int> farm_inventory;`,
+          expectedAnswer: 'map',
+          hint: '地圖/映射英文單字。',
+          explanation: 'std::map 採用紅黑樹（Red-Black Tree）實作，支援以 key-value 鍵值對在 O(log N) 時間內完成檢索。'
+        };
+      }
     }
   }
 
   // Fallback card just in case
   return {
     id, fieldId,
-    title: `[LV.1] #${fieldId} C++ 編譯良田挑戰`,
-    chineseDescription: `請在填空處補上關鍵字 int 以正確宣告主程式 main 函數的整數回傳型態。`,
+    title: `${prefix} C++ 科技農場學習題`,
+    chineseDescription: `請宣告標準 C++ 程式進入點 main 函式的整數回傳型別。`,
     codeTemplate: `______ main() {\n  return 0;\n}`,
     expectedAnswer: 'int',
-    hint: '回傳整數。',
-    explanation: 'C++ 標準規範 main 必須回傳 int 型態以標示正常退出狀態。'
+    hint: '整數型別。',
+    explanation: 'C++ 標準規範 main 必須回傳 int 型態。'
   };
 };
 

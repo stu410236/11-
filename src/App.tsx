@@ -82,8 +82,15 @@ import {
   Shield,
   Timer
 } from 'lucide-react';
-import { CPP_CARDS_DATA, FIELD_PLOTS_DATA } from './data/cppCards';
-import { CPlusPlusCard, FieldPlot, TortoisePet, GameState } from './types';
+import { CPP_CARDS_DATA, FIELD_PLOTS_DATA, CHAPTERS_DATA, getChapterForField } from './data/cppCards';
+import { CPlusPlusCard, FieldPlot, TortoisePet, GameState, DailyChallengeState } from './types';
+import { DailyChallengeModal } from './components/DailyChallengeModal';
+import { 
+  getTaiwanDateKey, 
+  getDailyChallengeQuestion, 
+  calculateDailyChallengeStreak, 
+  DAILY_CHALLENGE_REWARD 
+} from './utils/dailyChallenge';
 
 // Web Audio API 音效合成器
 function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed' | 'water' | 'pet' | 'levelUp', isMuted: boolean) {
@@ -592,6 +599,13 @@ export default function App() {
       daily_login: { currentValue: 1, isClaimed: false },
       answer_questions: { currentValue: 0, isClaimed: false },
       feed_tortoise: { currentValue: 0, isClaimed: false }
+    },
+    dailyChallenge: {
+      lastCompletedDate: undefined,
+      streak: 0,
+      bestStreak: 0,
+      totalCompleted: 0,
+      lastQuestionId: undefined
     }
   });
 
@@ -730,8 +744,8 @@ export default function App() {
   const [selectedFieldFilter, setSelectedFieldFilter] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // 地圖（Tab 1）難度與佈局篩選狀態
-  const [mapDifficultyFilter, setMapDifficultyFilter] = useState<'all' | 'basic' | 'intermediate' | 'advanced'>('all');
+  // 地圖（Tab 1）章節階段與佈局篩選狀態
+  const [mapDifficultyFilter, setMapDifficultyFilter] = useState<string>('all');
   const [mapViewMode, setMapViewMode] = useState<'matrix' | 'grid'>('matrix');
   const [mapSearchQuery, setMapSearchQuery] = useState<string>('');
 
@@ -753,9 +767,20 @@ export default function App() {
   const [newNicknameInput, setNewNicknameInput] = useState<string>('');
   const [isUpdatingNickname, setIsUpdatingNickname] = useState<boolean>(false);
 
-  // === 4.5. 每日任務狀態 ===
+  // === 4.5. 每日任務與每日限定挑戰狀態 ===
   const [isDailyQuestOpen, setIsDailyQuestOpen] = useState<boolean>(false);
   const [claimFeedback, setClaimFeedback] = useState<string | null>(null);
+
+  // 每日限定挑戰專屬狀態 (全 150 關獨立，確定性每日 1 題)
+  const [isDailyChallengeOpen, setIsDailyChallengeOpen] = useState<boolean>(false);
+  const [hasAutoOpenedDailyChallenge, setHasAutoOpenedDailyChallenge] = useState<boolean>(false);
+
+  // 依據台灣時間 (Asia/Taipei UTC+8) 計算今日 dateKey 與今日題目
+  const todayDateKey = getTaiwanDateKey();
+  const dailyChallengeQuestion = React.useMemo(() => {
+    return getDailyChallengeQuestion(todayDateKey, CPP_CARDS_DATA);
+  }, [todayDateKey]);
+  const isDailyChallengeCompletedToday = gameState.dailyChallenge?.lastCompletedDate === todayDateKey;
 
   // === 4.6. 灌溉挑戰倒數計時器狀態 ===
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -1464,6 +1489,82 @@ if (authMode === 'register') {
     return progress && progress.currentValue >= template.targetValue && !progress.isClaimed;
   });
 
+  // === 每日限定挑戰：每日登入 / 載入自動彈出邏輯 ===
+  useEffect(() => {
+    if (hasAutoOpenedDailyChallenge) return;
+    if (openOnboarding) return; // 若在新手導覽階段，暫不干擾
+
+    const isCompleted = gameState.dailyChallenge?.lastCompletedDate === todayDateKey;
+    if (!isCompleted) {
+      const timer = setTimeout(() => {
+        setIsDailyChallengeOpen(true);
+        setHasAutoOpenedDailyChallenge(true);
+      }, 800);
+      return () => clearTimeout(timer);
+    } else {
+      setHasAutoOpenedDailyChallenge(true);
+    }
+  }, [hasAutoOpenedDailyChallenge, gameState.dailyChallenge?.lastCompletedDate, todayDateKey, openOnboarding]);
+
+  // === 每日限定挑戰完成處理函式 ===
+  const handleCompleteDailyChallenge = (questionId: string) => {
+    // 嚴格防範重複領取
+    if (gameState.dailyChallenge?.lastCompletedDate === todayDateKey) {
+      return;
+    }
+
+    const streakResult = calculateDailyChallengeStreak(
+      gameState.dailyChallenge?.lastCompletedDate,
+      todayDateKey,
+      gameState.dailyChallenge?.streak || 0,
+      gameState.dailyChallenge?.bestStreak || 0
+    );
+
+    // 1. 更新遊戲資源與挑戰存檔
+    setGameState(prev => {
+      const prevChallenge = prev.dailyChallenge || { streak: 0, bestStreak: 0, totalCompleted: 0 };
+      return {
+        ...prev,
+        coins: prev.coins + DAILY_CHALLENGE_REWARD.coins,
+        cabbages: prev.cabbages + DAILY_CHALLENGE_REWARD.cabbages,
+        waterBuckets: prev.waterBuckets + DAILY_CHALLENGE_REWARD.waterBuckets,
+        dailyChallenge: {
+          lastCompletedDate: todayDateKey,
+          streak: streakResult.newStreak,
+          bestStreak: streakResult.newBestStreak,
+          totalCompleted: (prevChallenge.totalCompleted || 0) + 1,
+          lastQuestionId: questionId
+        }
+      };
+    });
+
+    // 2. 烏龜經驗值獎勵升級
+    setTortoise(prev => {
+      const newXp = prev.xp + DAILY_CHALLENGE_REWARD.tortoiseXp;
+      const neededXp = prev.level * 100;
+      if (newXp >= neededXp) {
+        return {
+          ...prev,
+          level: prev.level + 1,
+          xp: newXp - neededXp,
+          happiness: Math.min(100, prev.happiness + 20)
+        };
+      }
+      return {
+        ...prev,
+        xp: newXp
+      };
+    });
+
+    // 3. 推進「回答題目」每日任務進度
+    updateQuestProgress('answer_questions', 1);
+
+    // 4. 播放特效與提示訊息
+    playSynthSound('levelUp', isMuted);
+    setClaimFeedback(`🎉 今日限定挑戰完成！獲得金幣 +${DAILY_CHALLENGE_REWARD.coins}、高麗菜 +${DAILY_CHALLENGE_REWARD.cabbages}、聖泉水 +${DAILY_CHALLENGE_REWARD.waterBuckets}、烏龜經驗值 +${DAILY_CHALLENGE_REWARD.tortoiseXp}！`);
+    setTimeout(() => setClaimFeedback(null), 5000);
+  };
+
   // === 4.7. 灌溉挑戰倒數計時器核心邏輯 (已移除計時限制) ===
   const handleTimeOut = () => {
     // 依使用者要求，已移除計時限制
@@ -1840,11 +1941,21 @@ if (authMode === 'register') {
 
   // 地圖篩選與搜尋邏輯
   const filteredFields = fields.filter(plot => {
-    // 難度篩選
+    // 難度與章節階段篩選
     let matchDifficulty = true;
-    if (mapDifficultyFilter === 'basic') matchDifficulty = plot.id <= 45;
-    else if (mapDifficultyFilter === 'intermediate') matchDifficulty = plot.id > 45 && plot.id <= 90;
-    else if (mapDifficultyFilter === 'advanced') matchDifficulty = plot.id > 90;
+    if (mapDifficultyFilter === 'stage1' || mapDifficultyFilter === 'basic') {
+      matchDifficulty = plot.id <= 100; // 高中核心 (1-100)
+    } else if (mapDifficultyFilter === 'stage2' || mapDifficultyFilter === 'intermediate') {
+      matchDifficulty = plot.id >= 101 && plot.id <= 120; // 高中進階 (101-120)
+    } else if (mapDifficultyFilter === 'stage3' || mapDifficultyFilter === 'advanced') {
+      matchDifficulty = plot.id >= 121 && plot.id <= 150; // 延伸與競賽 (121-150)
+    } else if (mapDifficultyFilter.startsWith('ch_')) {
+      const chNum = parseInt(mapDifficultyFilter.replace('ch_', ''), 10);
+      const ch = CHAPTERS_DATA.find(c => c.chapter === chNum);
+      if (ch) {
+        matchDifficulty = plot.id >= ch.startId && plot.id <= ch.endId;
+      }
+    }
 
     // 關鍵字篩選 (ID, 名稱, 作物)
     let matchSearch = true;
@@ -1947,6 +2058,32 @@ if (authMode === 'register') {
                 <span>🔑 登入 / 建立暱稱</span>
               </button>
             )}
+
+            {/* 📅 今日 C++ 限定挑戰按鈕 */}
+            <button
+              onClick={() => {
+                playSynthSound('click', isMuted);
+                setIsDailyChallengeOpen(true);
+              }}
+              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition font-display border shadow-sm ${
+                isDailyChallengeCompletedToday
+                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                  : 'bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 border-amber-400/50 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.2)] animate-pulse'
+              }`}
+              title="每日 C++ 限定挑戰 (每日 1 題)"
+            >
+              <span className="text-xs">📅</span>
+              <span className="hidden sm:inline">今日限定題</span>
+              {isDailyChallengeCompletedToday ? (
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-mono">
+                  ✓ 完成
+                </span>
+              ) : (
+                <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                  NEW
+                </span>
+              )}
+            </button>
 
             {/* 📅 每日任務按鈕 */}
             <button
@@ -2077,14 +2214,23 @@ if (authMode === 'register') {
                         value={mapDifficultyFilter}
                         onChange={(e) => {
                           playSynthSound('click', isMuted);
-                          setMapDifficultyFilter(e.target.value as any);
+                          setMapDifficultyFilter(e.target.value);
                         }}
                         className="w-full bg-[#070b14] text-slate-200 text-xs font-bold font-display rounded-xl py-2.5 pl-9 pr-8 border border-emerald-500/20 focus:outline-none focus:border-emerald-400/80 transition-all cursor-pointer appearance-none"
                       >
-                        <option value="all">🌐 全部良田 ({fields.length} 區)</option>
-                        <option value="basic">🟢 基礎難度 (1 - 45 區)</option>
-                        <option value="intermediate">🟡 中階難度 (46 - 90 區)</option>
-                        <option value="advanced">🔴 進階難度 (91 - 150 區)</option>
+                        <option value="all">🌐 全部 150 區良田 (全 15 章節)</option>
+                        <optgroup label="── 依課程定位篩選 ──">
+                          <option value="stage1">🏫 高中核心 (1 - 100 區，第 1～10 章)</option>
+                          <option value="stage2">🚀 高中進階 (101 - 120 區，第 11～12 章)</option>
+                          <option value="stage3">🧠 延伸與競賽 (121 - 150 區，第 13～15 章)</option>
+                        </optgroup>
+                        <optgroup label="── 依 15 大主題章節篩選 ──">
+                          {CHAPTERS_DATA.map(ch => (
+                            <option key={ch.chapter} value={`ch_${ch.chapter}`}>
+                              {ch.emoji} 第 {ch.chapter} 章：{ch.topic} ({ch.startId}～{ch.endId} 區)
+                            </option>
+                          ))}
+                        </optgroup>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
                         ▼
@@ -2155,7 +2301,7 @@ if (authMode === 'register') {
                     <span className="text-5xl mb-3 animate-bounce">🔍</span>
                     <h3 className="text-sm font-black text-emerald-400 font-display">找不到相符的科技良田</h3>
                     <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                      在當前的【{mapDifficultyFilter === 'all' ? '全部' : mapDifficultyFilter === 'basic' ? '基礎' : mapDifficultyFilter === 'intermediate' ? '中階' : '進階'}】難度中，沒有包含 "{mapSearchQuery}" 的良田。請重新搜尋或調整篩選。
+                      在當前的篩選條件中，沒有包含 "{mapSearchQuery}" 的良田。請重新搜尋或調整篩選。
                     </p>
                     <button
                       onClick={() => {
@@ -2251,12 +2397,13 @@ if (authMode === 'register') {
                         const isIrrigated = plot.isIrrigated;
                         const cleanCategoryName = plot.name.match(/\(([^)]+)\)/)?.[1] || plot.name;
 
-                        // Determine level color badge
-                        let levelBadgeColor = 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400';
-                        if (plot.id > 45 && plot.id <= 90) {
-                          levelBadgeColor = 'border-amber-500/20 bg-amber-500/5 text-amber-400';
-                        } else if (plot.id > 90) {
-                          levelBadgeColor = 'border-rose-500/20 bg-rose-500/5 text-rose-400';
+                        const chInfo = getChapterForField(plot.id);
+                        // Determine stage color badge
+                        let levelBadgeColor = 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400';
+                        if (chInfo.stage === '高中進階') {
+                          levelBadgeColor = 'border-amber-500/20 bg-amber-500/10 text-amber-400';
+                        } else if (chInfo.stage.includes('延伸') || chInfo.stage.includes('競賽')) {
+                          levelBadgeColor = 'border-purple-500/20 bg-purple-500/10 text-purple-400';
                         }
 
                         return (
@@ -2658,11 +2805,15 @@ if (authMode === 'register') {
                   }}
                   className="bg-gray-50 border border-gray-200 focus:border-green-400 focus:outline-none focus:ring-1 focus:ring-green-400 rounded-full py-2 px-4 text-xs transition-all cursor-pointer"
                 >
-                  <option value="all">🔍 顯示全部 {fields.length} 個語法良田</option>
-                  {fields.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.id}. {f.name} ({f.cropName})
-                    </option>
+                  <option value="all">🔍 顯示全部 {fields.length} 個語法良田 ({CPP_CARDS_DATA.length} 題)</option>
+                  {CHAPTERS_DATA.map(ch => (
+                    <optgroup key={ch.chapter} label={`── ${ch.emoji} 第 ${ch.chapter} 章：${ch.topic} (${ch.stage}) ──`}>
+                      {fields.filter(f => f.id >= ch.startId && f.id <= ch.endId).map(f => (
+                        <option key={f.id} value={f.id}>
+                          #{f.id} {f.name} ({f.cropName})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -4502,6 +4653,20 @@ if (authMode === 'register') {
       )}
 
       {/* ========================================================= */}
+      {/* 7.5. DAILY C++ CHALLENGE MODAL (每日限定挑戰彈窗) */}
+      {/* ========================================================= */}
+      <DailyChallengeModal
+        isOpen={isDailyChallengeOpen}
+        onClose={() => setIsDailyChallengeOpen(false)}
+        todayDateKey={todayDateKey}
+        dailyChallengeQuestion={dailyChallengeQuestion}
+        dailyChallengeState={gameState.dailyChallenge}
+        onCompleteChallenge={handleCompleteDailyChallenge}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
       {/* 8. DAILY QUESTS DIALOG (每日任務彈窗) */}
       {/* ========================================================= */}
       {isDailyQuestOpen && (
@@ -4655,6 +4820,20 @@ if (authMode === 'register') {
           </div>
         </div>
       )}
+
+      {/* ========================================================= */}
+      {/* 8.5. DAILY C++ CHALLENGE MODAL (每日限定挑戰視窗) */}
+      {/* ========================================================= */}
+      <DailyChallengeModal
+        isOpen={isDailyChallengeOpen}
+        onClose={() => setIsDailyChallengeOpen(false)}
+        todayDateKey={todayDateKey}
+        dailyChallengeQuestion={dailyChallengeQuestion}
+        dailyChallengeState={gameState.dailyChallenge}
+        onCompleteChallenge={handleCompleteDailyChallenge}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
 
     </div>
   );

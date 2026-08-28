@@ -31,6 +31,14 @@ export interface TortoisePet {
   equippedAccessories?: Record<string, string>;
 }
 
+export interface DailyChallengeState {
+  lastCompletedDate?: string; // "YYYY-MM-DD"
+  streak: number;
+  bestStreak: number;
+  totalCompleted: number;
+  lastQuestionId?: string;
+}
+
 export interface GameState {
   score: number;
   coins: number;
@@ -42,4 +50,5 @@ export interface GameState {
   maxStreak: number;
   dailyQuestsDate?: string;
   dailyQuestsProgress?: Record<string, { currentValue: number; isClaimed: boolean }>;
+  dailyChallenge?: DailyChallengeState;
 }
