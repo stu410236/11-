@@ -102,9 +102,33 @@ import {
   RARITY_CONFIG
 } from './data/secretAchievements';
 import {
+  CROPS,
+  CropData,
+  CropRarity,
+  getCropById,
+  RARITY_CONFIG as CROP_RARITY_CONFIG
+} from './data/crops';
+import { CropDrawModal } from './components/CropDrawModal';
+import { CropProbabilityModal } from './components/CropProbabilityModal';
+import {
   SecretAchievementUnlockModal,
   SecretAchievementDetailModal
 } from './components/SecretAchievementModal';
+import {
+  PESTS,
+  WeeklyPestEvent,
+  PestHistoryRecord,
+  PestType,
+  getTaiwanPestWeekKey,
+  getEligiblePestFields,
+  selectPestTarget,
+  getPestChallengeQuestion,
+  getRecoveryQuestions
+} from './data/pests';
+import { WeeklyPestNotificationModal } from './components/WeeklyPestNotificationModal';
+import { WeeklyPestDefenseModal } from './components/WeeklyPestDefenseModal';
+import { WeeklyPestRecoveryModal } from './components/WeeklyPestRecoveryModal';
+import { sanitizeForFirestore } from './utils/firestoreSanitizer';
 
 // Web Audio API 音效合成器
 function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed' | 'water' | 'pet' | 'levelUp', isMuted: boolean) {
@@ -281,10 +305,12 @@ const TORTOISE_WISDOM_QUOTES = [
   "「`std::map` 底層是用神奇的紅黑樹(Red-Black Tree)架構的，每一次搜尋都很快！」"
 ];
 
-// Crop emoji helper
-const getCropEmoji = (id: number) => {
-  const CROP_EMOJIS = ['🫛', '🥬', '🌽', '🥕', '🍉', '🍓', '🍄', '🌵', '🌾', '🍅', '🍆', '🎃', '🧅', '🥦', '🌻', '🍎', '🍋', '🍇'];
-  return CROP_EMOJIS[(id - 1) % CROP_EMOJIS.length];
+// Crop emoji & helper
+const getCropEmoji = (id: number, cropId?: string | null) => {
+  if (cropId) {
+    return getCropById(cropId).icon;
+  }
+  return '🌱';
 };
 
 // 播放作物成長音效
@@ -622,14 +648,25 @@ export default function App() {
       lastQuestionId: undefined
     },
     unlockedAchievements: {},
-    achievementStats: createDefaultAchievementStats()
+    achievementStats: createDefaultAchievementStats(),
+    weeklyPest: undefined,
+    pestHistory: [],
+    totalPestsRepelled: 0,
+    totalCropsRecovered: 0,
+    pestDefenseWinStreak: 0
   });
 
   const createDefaultFields = (): FieldPlot[] => FIELD_PLOTS_DATA.map(f => ({
     ...f,
     isIrrigated: false,
     bestStreak: 0,
-    lastAttemptDate: null
+    lastAttemptDate: null,
+    cropId: null,
+    cropDrawPending: false,
+    cropDrawnAt: null,
+    cropStatus: 'healthy',
+    witheredAt: null,
+    witheredByPestWeek: null
   }));
 
   const createDefaultTortoise = (): TortoisePet => ({
@@ -701,11 +738,20 @@ export default function App() {
         const parsed = JSON.parse(local) as FieldPlot[];
         return FIELD_PLOTS_DATA.map((fresh) => {
           const saved = parsed.find(p => p.id === fresh.id);
+          const isIrrigated = saved ? !!saved.isIrrigated : false;
+          const cropId = saved?.cropId ?? null;
+          const cropDrawPending = saved?.cropDrawPending ?? (isIrrigated && !cropId);
           return {
             ...fresh,
-            isIrrigated: saved ? saved.isIrrigated : false,
+            isIrrigated,
             bestStreak: saved ? saved.bestStreak : 0,
-            lastAttemptDate: saved ? saved.lastAttemptDate : null
+            lastAttemptDate: saved ? saved.lastAttemptDate : null,
+            cropId,
+            cropDrawPending,
+            cropDrawnAt: saved?.cropDrawnAt ?? null,
+            cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
+            witheredAt: saved?.witheredAt ?? null,
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null
           };
         });
       } catch (e) {}
@@ -802,6 +848,17 @@ export default function App() {
   const [newlyUnlockedSecret, setNewlyUnlockedSecret] = useState<SecretAchievementDefinition | null>(null);
   const [viewingSecretDetail, setViewingSecretDetail] = useState<{ def: SecretAchievementDefinition; record: SecretAchievementRecord | null } | null>(null);
   const [hasUsedHintInCurrentField, setHasUsedHintInCurrentField] = useState<boolean>(false);
+
+  // === 4.58. 農田作物抽取專屬狀態 ===
+  const [pendingCropDrawFieldId, setPendingCropDrawFieldId] = useState<number | null>(null);
+  const [isCropProbabilityOpen, setIsCropProbabilityOpen] = useState<boolean>(false);
+
+  // === 4.60. 每週害蟲入侵專屬狀態 ===
+  const [isPestNoticeOpen, setIsPestNoticeOpen] = useState<boolean>(false);
+  const [isPestDefenseOpen, setIsPestDefenseOpen] = useState<boolean>(false);
+  const [isPestRecoveryOpen, setIsPestRecoveryOpen] = useState<boolean>(false);
+  const [pestRecoveryFieldId, setPestRecoveryFieldId] = useState<number | null>(null);
+  const [hasAutoPromptedPestNotice, setHasAutoPromptedPestNotice] = useState<boolean>(false);
 
   // === 隱藏成就檢測與解鎖核心函式 ===
   const checkAndUnlockSecretAchievements = (params?: {
@@ -1060,17 +1117,21 @@ export default function App() {
   throw new Error('Firestore 或使用者 UID 尚未準備完成');
 }
 
-await setDoc(
-  doc(db, 'users', currentUser.userKey),
-  {
-    username: currentUser.username,
-    gameState,
-    fields,
-    tortoise,
-    updatedAt: serverTimestamp()
-  },
-  { merge: true }
-);
+        const cleanPayload = sanitizeForFirestore({
+          username: currentUser.username || '',
+          gameState,
+          fields,
+          tortoise
+        });
+
+        await setDoc(
+          doc(db, 'users', currentUser.userKey),
+          {
+            ...cleanPayload,
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
       } catch (e) {
         console.error("Cloud sync network error:", e);
       } finally {
@@ -1080,6 +1141,98 @@ await setDoc(
 
     return () => clearTimeout(timer);
   }, [gameState, fields, tortoise, currentUser]);
+
+  // === 每週害蟲入侵事件檢測與排程 (每週六 19:30 Asia/Taipei 週期) ===
+  useEffect(() => {
+    if (!currentUser) return;
+    const currentWeekKey = getTaiwanPestWeekKey();
+
+    // 如果本週已有事件記錄且 weekKey 相符，檢查是否需要彈出入侵提示
+    if (gameState.weeklyPest && gameState.weeklyPest.weekKey === currentWeekKey) {
+      if (gameState.weeklyPest.status === 'pending' && !hasAutoPromptedPestNotice) {
+        setHasAutoPromptedPestNotice(true);
+        setIsPestNoticeOpen(true);
+      }
+      return;
+    }
+
+    // 若尚未記錄本週事件，開始進行符合條件之健康作物檢測
+    const eligible = getEligiblePestFields(fields);
+    const uKey = getStorageUserKey(currentUser);
+
+    if (eligible.length === 0) {
+      // 本週無健康作物可供入侵，設定為 no_target
+      const noTargetEvent: WeeklyPestEvent = {
+        weekKey: currentWeekKey,
+        pestId: 'caterpillar',
+        fieldId: 0,
+        status: 'no_target',
+        spawnedAt: new Date().toISOString(),
+        recoveryProgress: 0
+      };
+      setGameState(prev => {
+        if (prev.weeklyPest && prev.weeklyPest.weekKey === currentWeekKey) return prev;
+        return {
+          ...prev,
+          weeklyPest: noTargetEvent
+        };
+      });
+      return;
+    }
+
+    // 確定性挑選受害農田與害蟲種類
+    const targetSelection = selectPestTarget(uKey, currentWeekKey, eligible);
+    if (!targetSelection) return;
+
+    const { selectedField, selectedPest } = targetSelection;
+    const challengeQ = getPestChallengeQuestion(uKey, currentWeekKey, selectedField.id, CPP_CARDS_DATA);
+    const recoveryQs = getRecoveryQuestions(uKey, currentWeekKey, selectedField.id, CPP_CARDS_DATA);
+
+    const newPestEvent: WeeklyPestEvent = {
+      weekKey: currentWeekKey,
+      pestId: selectedPest.id,
+      fieldId: selectedField.id,
+      status: 'pending',
+      spawnedAt: new Date().toISOString(),
+      challengeStartedAt: null,
+      resolvedAt: null,
+      recoveryProgress: 0,
+      challengeQuestionId: challengeQ?.id,
+      recoveryQuestionIds: recoveryQs.map(q => q.id)
+    };
+
+    setGameState(prev => {
+      if (prev.weeklyPest && prev.weeklyPest.weekKey === currentWeekKey) return prev;
+      return {
+        ...prev,
+        weeklyPest: newPestEvent
+      };
+    });
+
+    if (!hasAutoPromptedPestNotice) {
+      setHasAutoPromptedPestNotice(true);
+      setIsPestNoticeOpen(true);
+    }
+  }, [currentUser, fields, gameState.weeklyPest, hasAutoPromptedPestNotice]);
+
+  // 取得當前害蟲防衛挑戰題目
+  const currentPestChallengeQuestion = React.useMemo(() => {
+    if (!gameState.weeklyPest || gameState.weeklyPest.status === 'no_target' || gameState.weeklyPest.fieldId === 0) {
+      return null;
+    }
+    const pest = gameState.weeklyPest;
+    const uKey = getStorageUserKey(currentUser);
+    return getPestChallengeQuestion(uKey, pest.weekKey, pest.fieldId, CPP_CARDS_DATA);
+  }, [gameState.weeklyPest, currentUser]);
+
+  // 取得當前枯萎農田的 5 道復育複習題目
+  const currentPestRecoveryQuestions = React.useMemo(() => {
+    const targetFieldId = pestRecoveryFieldId || (gameState.weeklyPest?.status === 'withered' ? gameState.weeklyPest.fieldId : null);
+    if (!targetFieldId) return [];
+    const uKey = getStorageUserKey(currentUser);
+    const weekKey = gameState.weeklyPest?.weekKey || getTaiwanPestWeekKey();
+    return getRecoveryQuestions(uKey, weekKey, targetFieldId, CPP_CARDS_DATA);
+  }, [pestRecoveryFieldId, gameState.weeklyPest, currentUser]);
 
   // 登出
   const handleLogout = () => {
@@ -1130,11 +1283,11 @@ if (userSnap.exists()) {
 
     await setDoc(
       userRef,
-      {
+      sanitizeForFirestore({
         username: finalNickname,
         authType: 'google',
         updatedAt: serverTimestamp()
-      },
+      }),
       { merge: true }
     );
   }
@@ -1149,7 +1302,7 @@ if (userSnap.exists()) {
   };
 
   await setDoc(userRef, {
-    ...data,
+    ...sanitizeForFirestore(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -1169,11 +1322,20 @@ if (userSnap.exists()) {
         const parsed = data.fields as FieldPlot[];
         setFields(FIELD_PLOTS_DATA.map((fresh) => {
           const saved = parsed.find(p => p.id === fresh.id);
+          const isIrrigated = saved ? !!saved.isIrrigated : false;
+          const cropId = saved?.cropId ?? null;
+          const cropDrawPending = saved?.cropDrawPending ?? (isIrrigated && !cropId);
           return {
             ...fresh,
-            isIrrigated: saved ? saved.isIrrigated : false,
+            isIrrigated,
             bestStreak: saved ? saved.bestStreak : 0,
-            lastAttemptDate: saved ? saved.lastAttemptDate : null
+            lastAttemptDate: saved ? saved.lastAttemptDate : null,
+            cropId,
+            cropDrawPending,
+            cropDrawnAt: saved?.cropDrawnAt ?? null,
+            cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
+            witheredAt: saved?.witheredAt ?? null,
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null
           };
         }));
       } else {
@@ -1235,11 +1397,11 @@ if (userSnap.exists()) {
 
     await setDoc(
       userRef,
-      {
+      sanitizeForFirestore({
         username: finalNickname,
         authType: 'anonymous',
         updatedAt: serverTimestamp()
-      },
+      }),
       { merge: true }
     );
   }
@@ -1257,7 +1419,7 @@ if (userSnap.exists()) {
   await setDoc(
     userRef,
     {
-      ...data,
+      ...sanitizeForFirestore(data),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }
@@ -1278,11 +1440,20 @@ if (userSnap.exists()) {
         const parsed = data.fields as FieldPlot[];
         setFields(FIELD_PLOTS_DATA.map((fresh) => {
           const saved = parsed.find(p => p.id === fresh.id);
+          const isIrrigated = saved ? !!saved.isIrrigated : false;
+          const cropId = saved?.cropId ?? null;
+          const cropDrawPending = saved?.cropDrawPending ?? (isIrrigated && !cropId);
           return {
             ...fresh,
-            isIrrigated: saved ? saved.isIrrigated : false,
+            isIrrigated,
             bestStreak: saved ? saved.bestStreak : 0,
-            lastAttemptDate: saved ? saved.lastAttemptDate : null
+            lastAttemptDate: saved ? saved.lastAttemptDate : null,
+            cropId,
+            cropDrawPending,
+            cropDrawnAt: saved?.cropDrawnAt ?? null,
+            cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
+            witheredAt: saved?.witheredAt ?? null,
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null
           };
         }));
       } else {
@@ -1409,7 +1580,7 @@ if (authMode === 'register') {
   await setDoc(
     userRef,
     {
-      ...data,
+      ...sanitizeForFirestore(data),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }
@@ -1446,7 +1617,7 @@ if (authMode === 'register') {
     await setDoc(
       userRef,
       {
-        ...data,
+        ...sanitizeForFirestore(data),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
@@ -1479,12 +1650,21 @@ if (authMode === 'register') {
     setFields(
       FIELD_PLOTS_DATA.map((fresh) => {
         const saved = parsed.find(p => p.id === fresh.id);
+        const isIrrigated = saved ? !!saved.isIrrigated : false;
+        const cropId = saved?.cropId ?? null;
+        const cropDrawPending = saved?.cropDrawPending ?? (isIrrigated && !cropId);
 
         return {
           ...fresh,
-          isIrrigated: saved ? saved.isIrrigated : false,
+          isIrrigated,
           bestStreak: saved ? saved.bestStreak : 0,
-          lastAttemptDate: saved ? saved.lastAttemptDate : null
+          lastAttemptDate: saved ? saved.lastAttemptDate : null,
+          cropId,
+          cropDrawPending,
+          cropDrawnAt: saved?.cropDrawnAt ?? null,
+          cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
+          witheredAt: saved?.witheredAt ?? null,
+          witheredByPestWeek: saved?.witheredByPestWeek ?? null
         };
       })
     );
@@ -1737,9 +1917,30 @@ if (authMode === 'register') {
     return CPP_CARDS_DATA.filter(card => card.fieldId === fieldId);
   };
 
-  // 點擊田地，進入灌溉挑戰
+  // 點擊田地，進入灌溉挑戰或開啟作物抽取
   const handleSelectField = (fieldId: number) => {
     playSynthSound('click', isMuted);
+    const targetField = fields.find(f => f.id === fieldId);
+
+    // 如果此農田處於枯萎狀態，點擊直接開啟復育複習介面
+    if (targetField?.cropStatus === 'withered') {
+      setPestRecoveryFieldId(fieldId);
+      setIsPestRecoveryOpen(true);
+      return;
+    }
+
+    // 如果此農田目前正遭受害蟲攻擊，點擊直接開啟除蟲防衛挑戰
+    if (gameState.weeklyPest?.status === 'pending' && gameState.weeklyPest.fieldId === fieldId) {
+      setIsPestDefenseOpen(true);
+      return;
+    }
+
+    // 如果此農田已灌溉但尚未抽取作物 (或待抽取中)，點擊直接開啟作物抽取互動介面
+    if (targetField?.cropDrawPending || (targetField?.isIrrigated && !targetField?.cropId)) {
+      setPendingCropDrawFieldId(fieldId);
+      return;
+    }
+
     setHasUsedHintInCurrentField(false);
     
     // 實作題目由淺入深且不重複：依據題目 ID 的尾部序號 (1 到 10) 排序，使難度慢慢遞增
@@ -1762,6 +1963,233 @@ if (authMode === 'register') {
     const duration = getTimerDurationForField(fieldId);
     setTimeLeft(duration);
     setIsTimerActive(true);
+  };
+
+  // 玩家在 CropDrawModal 點擊抽取並揭曉後呼叫此函式進行永久綁定與存檔
+  const handleCropDrawComplete = (drawnCrop: CropData) => {
+    if (pendingCropDrawFieldId === null) return;
+    const targetId = pendingCropDrawFieldId;
+
+    let updatedFields: FieldPlot[] = [];
+    setFields(prev => {
+      updatedFields = prev.map(f => {
+        if (f.id === targetId) {
+          return {
+            ...f,
+            isIrrigated: true,
+            cropId: drawnCrop.id,
+            cropName: drawnCrop.name,
+            cropDrawPending: false,
+            cropDrawnAt: new Date().toISOString(),
+            cropStatus: 'healthy',
+            witheredAt: null,
+            witheredByPestWeek: null
+          };
+        }
+        return f;
+      });
+      return updatedFields;
+    });
+
+    setTortoiseSpeech(`「太棒了！第 ${targetId} 區良田抽到了【${drawnCrop.name}】${drawnCrop.icon}（${drawnCrop.englishName}，${drawnCrop.rarity.toUpperCase()}）！真是好兆頭！」`);
+  };
+
+  // === 4.8. 每週害蟲入侵事件處理函式 ===
+  // 害蟲防衛成功
+  const handlePestDefenseSuccess = () => {
+    const currentPest = gameState.weeklyPest;
+    if (!currentPest) return;
+
+    const targetField = fields.find(f => f.id === currentPest.fieldId);
+    const targetFieldName = targetField ? targetField.name : `第 ${currentPest.fieldId} 區`;
+
+    setGameState(prev => {
+      const prevRepelled = prev.totalPestsRepelled || 0;
+      const prevStreak = prev.pestDefenseWinStreak || 0;
+      const history = prev.pestHistory || [];
+
+      const newHistoryRecord: PestHistoryRecord = {
+        weekKey: currentPest.weekKey,
+        pestId: currentPest.pestId,
+        fieldId: currentPest.fieldId,
+        result: 'repelled',
+        cropId: targetField?.cropId || 'unknown',
+        resolvedAt: new Date().toISOString()
+      };
+
+      return {
+        ...prev,
+        weeklyPest: {
+          ...currentPest,
+          status: 'repelled',
+          resolvedAt: new Date().toISOString()
+        },
+        pestHistory: [newHistoryRecord, ...history],
+        totalPestsRepelled: prevRepelled + 1,
+        pestDefenseWinStreak: prevStreak + 1
+      };
+    });
+
+    setIsPestDefenseOpen(false);
+    setTortoiseSpeech(`「太神啦！你用精湛的 C++ 防衛代碼成功驅逐了 ${PESTS[currentPest.pestId]?.name || '害蟲'}！【${targetFieldName}】的作物保住了！」`);
+  };
+
+  // 害蟲防衛失敗 (作物枯萎，保留原 cropId，進入復育模式)
+  const handlePestDefenseFailure = () => {
+    const currentPest = gameState.weeklyPest;
+    if (!currentPest) return;
+
+    const targetId = currentPest.fieldId;
+    const targetField = fields.find(f => f.id === targetId);
+    const targetFieldName = targetField ? targetField.name : `第 ${targetId} 區`;
+
+    // 將受害農田標記為枯萎 (保留原 cropId 與作物資料)
+    setFields(prev => prev.map(f => {
+      if (f.id === targetId) {
+        return {
+          ...f,
+          cropStatus: 'withered',
+          witheredAt: new Date().toISOString(),
+          witheredByPestWeek: currentPest.weekKey
+        };
+      }
+      return f;
+    }));
+
+    setGameState(prev => {
+      return {
+        ...prev,
+        weeklyPest: {
+          ...currentPest,
+          status: 'withered',
+          resolvedAt: new Date().toISOString()
+        },
+        pestDefenseWinStreak: 0
+      };
+    });
+
+    setIsPestDefenseOpen(false);
+    setTortoiseSpeech(`「哎呀... 防衛失敗，【${targetFieldName}】的作物暫時枯萎了！但請別灰心，點擊該農田完成 5 題 C++ 複習即可復育救回作物！」`);
+  };
+
+  // 復育進度更新
+  const handlePestRecoveryProgressUpdate = (newProgress: number) => {
+    setGameState(prev => {
+      if (!prev.weeklyPest) return prev;
+      return {
+        ...prev,
+        weeklyPest: {
+          ...prev.weeklyPest,
+          recoveryProgress: newProgress
+        }
+      };
+    });
+  };
+
+  // 復育完成 (作物滿血復活，保留原 cropId 與稀有度)
+  const handlePestRecoveryComplete = () => {
+    const currentPest = gameState.weeklyPest;
+    const targetId = pestRecoveryFieldId || currentPest?.fieldId;
+    if (!targetId) return;
+
+    const targetField = fields.find(f => f.id === targetId);
+    const targetFieldName = targetField ? targetField.name : `第 ${targetId} 區`;
+
+    // 將農田作物完全復原
+    setFields(prev => prev.map(f => {
+      if (f.id === targetId) {
+        return {
+          ...f,
+          cropStatus: 'healthy',
+          witheredAt: null,
+          witheredByPestWeek: null
+        };
+      }
+      return f;
+    }));
+
+    setGameState(prev => {
+      const prevRecovered = prev.totalCropsRecovered || 0;
+      const history = prev.pestHistory || [];
+
+      const newHistoryRecord: PestHistoryRecord = {
+        weekKey: currentPest?.weekKey || 'manual',
+        pestId: currentPest?.pestId || 'caterpillar',
+        fieldId: targetId,
+        result: 'recovered',
+        cropId: targetField?.cropId || 'unknown',
+        resolvedAt: new Date().toISOString()
+      };
+
+      return {
+        ...prev,
+        weeklyPest: currentPest ? {
+          ...currentPest,
+          status: 'recovered',
+          recoveryProgress: 5,
+          resolvedAt: new Date().toISOString()
+        } : undefined,
+        pestHistory: [newHistoryRecord, ...history],
+        totalCropsRecovered: prevRecovered + 1
+      };
+    });
+
+    setIsPestRecoveryOpen(false);
+    setPestRecoveryFieldId(null);
+    setTortoiseSpeech(`「太棒了！田地復育成功！【${targetFieldName}】的作物重新煥發生機！」`);
+  };
+
+  // Dev 模式除錯與測試輔助函式
+  const handleDevTriggerPest = (forceFieldId?: number) => {
+    const currentWeekKey = getTaiwanPestWeekKey();
+    const eligible = getEligiblePestFields(fields);
+    const uKey = getStorageUserKey(currentUser);
+
+    const targetPlot = forceFieldId 
+      ? (fields.find(f => f.id === forceFieldId) || eligible[0] || fields[0])
+      : (eligible[0] || fields[0]);
+
+    const pestTypes: PestType[] = ['caterpillar', 'beetle', 'locust', 'snail', 'ant'];
+    const randomPestId = pestTypes[Math.floor(Math.random() * pestTypes.length)];
+
+    const challengeQ = getPestChallengeQuestion(uKey, currentWeekKey, targetPlot.id, CPP_CARDS_DATA);
+    const recoveryQs = getRecoveryQuestions(uKey, currentWeekKey, targetPlot.id, CPP_CARDS_DATA);
+
+    const devPestEvent: WeeklyPestEvent = {
+      weekKey: currentWeekKey,
+      pestId: randomPestId,
+      fieldId: targetPlot.id,
+      status: 'pending',
+      spawnedAt: new Date().toISOString(),
+      challengeStartedAt: null,
+      resolvedAt: null,
+      recoveryProgress: 0,
+      challengeQuestionId: challengeQ?.id,
+      recoveryQuestionIds: recoveryQs.map(q => q.id)
+    };
+
+    setGameState(prev => ({
+      ...prev,
+      weeklyPest: devPestEvent
+    }));
+    setIsPestNoticeOpen(true);
+  };
+
+  const handleDevResetPest = () => {
+    setGameState(prev => ({
+      ...prev,
+      weeklyPest: undefined
+    }));
+    setFields(prev => prev.map(f => ({
+      ...f,
+      cropStatus: f.cropId ? 'healthy' : undefined,
+      witheredAt: null,
+      witheredByPestWeek: null
+    })));
+    setIsPestNoticeOpen(false);
+    setIsPestDefenseOpen(false);
+    setIsPestRecoveryOpen(false);
+    setPestRecoveryFieldId(null);
   };
 
   // 送出填空答案
@@ -1851,16 +2279,20 @@ if (authMode === 'register') {
     } else {
       // 10 題結束！結算灌溉結果
       const isPerfect = currentFieldCorrectAnswers === 10;
+      const targetFieldId = activeFieldId;
+      const currentTargetField = fields.find(f => f.id === targetFieldId);
+      const isAlreadyHasCrop = !!currentTargetField?.cropId;
       
       let updatedFields: FieldPlot[] = [];
       setFields(prevFields => {
         updatedFields = prevFields.map(f => {
-          if (f.id === activeFieldId) {
+          if (f.id === targetFieldId) {
             return {
               ...f,
               isIrrigated: isPerfect ? true : f.isIrrigated,
               bestStreak: Math.max(f.bestStreak, currentFieldCorrectAnswers),
-              lastAttemptDate: new Date().toLocaleDateString()
+              lastAttemptDate: new Date().toLocaleDateString(),
+              cropDrawPending: isPerfect && !isAlreadyHasCrop ? true : f.cropDrawPending
             };
           }
           return f;
@@ -1871,16 +2303,13 @@ if (authMode === 'register') {
       if (isPerfect) {
         playSynthSound('irrigate', isMuted);
         setIsCelebrating(true);
-        const currentField = fields.find(f => f.id === activeFieldId);
-        if (currentField) {
-          setGrowingPlot({
-            id: currentField.id,
-            name: currentField.name,
-            cropName: currentField.cropName,
-            emoji: getCropEmoji(currentField.id)
-          });
+        
+        // 若該田地尚未抽過作物，主動彈出作物抽取互動視窗
+        if (!isAlreadyHasCrop) {
+          setPendingCropDrawFieldId(targetFieldId);
         }
-        setTortoiseSpeech(`「太令人感動了！${currentField?.name || '這片良田'} 已經 100% 成功灌溉！收穫了鮮脆的高麗菜與潔淨的聖泉水！」`);
+
+        setTortoiseSpeech(`「太令人感動了！第 ${targetFieldId} 區良田 已經 100% 成功灌溉！收穫了鮮脆的高麗菜與潔淨的聖泉水！」`);
         
         let nextGS: GameState | null = null;
         setGameState(prev => {
@@ -2414,6 +2843,89 @@ if (authMode === 'register') {
             
             {activeFieldId === null ? (
               <>
+                {/* ⚠️ 每週害蟲入侵警報橫幅 */}
+                {gameState.weeklyPest?.status === 'pending' && (() => {
+                  const pestId = gameState.weeklyPest?.pestId || 'caterpillar';
+                  const pest = PESTS[pestId] || PESTS.caterpillar;
+                  const targetPlot = fields.find(f => f.id === gameState.weeklyPest?.fieldId);
+                  const crop = targetPlot?.cropId ? getCropById(targetPlot.cropId) : null;
+                  return (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-red-950/90 via-[#220d11] to-red-950/90 border-2 border-red-500/80 shadow-[0_0_25px_rgba(239,68,68,0.35)] flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
+                      <div className="flex items-center gap-3.5">
+                        <span className="text-3xl p-2 bg-red-900/60 rounded-xl border border-red-500/50 shadow-inner">
+                          {pest.icon}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-red-600 text-white rounded font-mono tracking-wider">
+                              ⚠️ 害蟲突襲警報
+                            </span>
+                            <span className="text-xs text-red-300 font-bold">
+                              第 {targetPlot?.id} 區【{targetPlot?.name}】遭受 {pest.name} 攻擊！
+                            </span>
+                          </div>
+                          <p className="text-xs text-red-200/90 mt-0.5">
+                            威脅作物：<strong>{crop?.name || targetPlot?.cropName} {crop?.icon || '🌱'}</strong>。請立即施放 C++ 防衛代碼驅逐害蟲！
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => {
+                            playSynthSound('click', isMuted);
+                            setIsPestDefenseOpen(true);
+                          }}
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xs rounded-xl shadow-[0_0_15px_rgba(239,68,68,0.4)] transition-all active:scale-95 cursor-pointer"
+                        >
+                          ⚔️ 立即前往防衛
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 🥀 作物枯萎待復育警報橫幅 */}
+                {fields.some(f => f.cropStatus === 'withered') && (() => {
+                  const witheredPlot = fields.find(f => f.cropStatus === 'withered');
+                  if (!witheredPlot) return null;
+                  const crop = witheredPlot.cropId ? getCropById(witheredPlot.cropId) : null;
+                  const progress = gameState.weeklyPest?.recoveryProgress || 0;
+                  return (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/90 via-[#1c1810] to-teal-950/90 border-2 border-amber-500/70 shadow-[0_0_20px_rgba(245,158,11,0.25)] flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <span className="text-3xl p-2 bg-amber-900/40 rounded-xl border border-amber-500/40 shadow-inner">
+                          🥀
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-amber-500 text-black rounded font-mono tracking-wider">
+                              🌱 作物待復育
+                            </span>
+                            <span className="text-xs text-amber-200 font-bold">
+                              第 {witheredPlot.id} 區【{witheredPlot.name}】作物枯萎中
+                            </span>
+                          </div>
+                          <p className="text-xs text-amber-200/80 mt-0.5">
+                            完成 5 道 C++ 複習題即可完全救回<strong>【{crop?.name || witheredPlot.cropName}】{crop?.icon || '🌱'}</strong>（目前進度：{progress}/5 題）！
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => {
+                            playSynthSound('click', isMuted);
+                            setPestRecoveryFieldId(witheredPlot.id);
+                            setIsPestRecoveryOpen(true);
+                          }}
+                          className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-black text-xs rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all active:scale-95 cursor-pointer"
+                        >
+                          🌱 進入 5 題復育複習
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* 1A. 頂部簡約資訊與資源看板 (COMPACT STATUS HEADER) */}
                 <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 space-y-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
@@ -2516,8 +3028,20 @@ if (authMode === 'register') {
                     </div>
                   </div>
 
-                  {/* Right part: View Layout selector */}
-                  <div className="flex gap-2 justify-end">
+                  {/* Right part: View Layout selector & Crop Probability */}
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        playSynthSound('click', isMuted);
+                        setIsCropProbabilityOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border-amber-500/40 hover:from-amber-500/30 hover:to-orange-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                      title="查看 15 種作物全圖鑑與抽取機率表"
+                    >
+                      <span>🌾</span>
+                      <span>作物圖鑑/機率</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         playSynthSound('click', isMuted);
@@ -2588,25 +3112,57 @@ if (authMode === 'register') {
                       <div className="inline-grid grid-rows-5 grid-flow-col gap-3 px-2 py-1 min-w-max">
                         {filteredFields.map(plot => {
                           const isIrrigated = plot.isIrrigated;
+                          const hasCrop = isIrrigated && !!plot.cropId;
+                          const isPendingDraw = plot.cropDrawPending || (isIrrigated && !plot.cropId);
+                          const cropData = plot.cropId ? getCropById(plot.cropId) : null;
+                          const isUnderAttack = gameState.weeklyPest?.status === 'pending' && gameState.weeklyPest.fieldId === plot.id;
+                          const isWithered = plot.cropStatus === 'withered';
+                          const attackPestId = gameState.weeklyPest?.pestId || 'caterpillar';
+                          const attackPest = isUnderAttack ? (PESTS[attackPestId] || PESTS.caterpillar) : null;
+
                           return (
                             <button
                               key={plot.id}
                               onClick={() => handleSelectField(plot.id)}
                               id={`plot-card-${plot.id}`}
-                              title={`${plot.name}: ${plot.cropName} (${isIrrigated ? '已灌溉' : '待灌溉'} - 最高紀錄 ${plot.bestStreak}/10 題)`}
+                              title={`${plot.name}: ${isUnderAttack ? `⚠️ 正遭受${attackPest?.name}攻擊！點擊防衛` : isWithered ? '🥀 作物枯萎中，點擊復育' : cropData ? `${cropData.name} (${cropData.englishName})` : isPendingDraw ? '待抽取作物' : '待灌溉'}`}
                               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl border flex items-center justify-center transition-all duration-200 active:scale-90 hover:scale-105 shadow-md relative ${
-                                isIrrigated
+                                isUnderAttack
+                                  ? 'bg-gradient-to-br from-red-600/30 to-orange-600/30 border-red-500 text-red-300 shadow-[0_0_16px_rgba(239,68,68,0.7)] animate-pulse'
+                                  : isWithered
+                                  ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/70 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                                  : hasCrop
                                   ? 'bg-gradient-to-br from-emerald-500/10 to-teal-500/30 border-emerald-400/80 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                                  : isPendingDraw
+                                  ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400/80 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse'
                                   : 'bg-[#131d31] border-slate-700/80 hover:bg-[#1a2944] hover:border-emerald-400 text-slate-500 hover:text-emerald-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]'
                               }`}
                             >
-                              {isIrrigated ? (
-                                <div className="relative flex flex-col items-center justify-center">
-                                  {/* Subtle glowing spark */}
-                                  <div className="absolute -top-1.5 -right-1.5 text-[8px] animate-pulse">✨</div>
-                                  <span className="text-2xl sm:text-3xl animate-bounce">
-                                    {getCropEmoji(plot.id)}
+                              {isUnderAttack ? (
+                                <div className="relative flex flex-col items-center justify-center animate-bounce">
+                                  <span className="text-2xl sm:text-3xl">
+                                    {attackPest?.icon || '🐛'}
                                   </span>
+                                  <span className="text-[8px] font-black text-red-300 font-mono leading-none bg-red-950/80 px-1 rounded">防衛</span>
+                                </div>
+                              ) : isWithered ? (
+                                <div className="relative flex flex-col items-center justify-center opacity-85">
+                                  <span className="text-xl sm:text-2xl grayscale">
+                                    {cropData?.icon || '🥀'}
+                                  </span>
+                                  <span className="text-[8px] font-black text-amber-300 font-mono leading-none bg-amber-950/80 px-1 rounded">復育</span>
+                                </div>
+                              ) : hasCrop && cropData ? (
+                                <div className="relative flex flex-col items-center justify-center">
+                                  <div className="absolute -top-1.5 -right-1.5 text-[8px] animate-pulse">✨</div>
+                                  <span className="text-2xl sm:text-3xl">
+                                    {cropData.icon}
+                                  </span>
+                                </div>
+                              ) : isPendingDraw ? (
+                                <div className="flex flex-col items-center justify-center space-y-0.5">
+                                  <span className="text-xl">🎁</span>
+                                  <span className="text-[9px] font-black text-amber-300 font-mono leading-none">抽作物</span>
                                 </div>
                               ) : (
                                 <div className="flex flex-col items-center justify-center space-y-0.5">
@@ -2617,8 +3173,14 @@ if (authMode === 'register') {
 
                               {/* Tiny lock/check indicator badge in corner */}
                               <div className="absolute bottom-0.5 right-0.5 pointer-events-none">
-                                {isIrrigated ? (
-                                  <span className="text-[8px] bg-emerald-500 text-teal-950 rounded-full p-0.5 leading-none">✓</span>
+                                {isUnderAttack ? (
+                                  <span className="text-[8px] bg-red-600 text-white font-black rounded-full px-1 leading-none">!</span>
+                                ) : isWithered ? (
+                                  <span className="text-[8px] bg-amber-500 text-slate-950 font-black rounded-full px-0.5 leading-none">🥀</span>
+                                ) : hasCrop ? (
+                                  <span className="text-[8px] bg-emerald-500 text-teal-950 rounded-full p-0.5 leading-none font-bold">✓</span>
+                                ) : isPendingDraw ? (
+                                  <span className="text-[8px] bg-amber-400 text-amber-950 font-black rounded-full px-1 leading-none">!</span>
                                 ) : null}
                               </div>
                             </button>
@@ -2651,7 +3213,14 @@ if (authMode === 'register') {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {filteredFields.map(plot => {
                         const isIrrigated = plot.isIrrigated;
+                        const hasCrop = isIrrigated && !!plot.cropId;
+                        const isPendingDraw = plot.cropDrawPending || (isIrrigated && !plot.cropId);
+                        const cropData = plot.cropId ? getCropById(plot.cropId) : null;
                         const cleanCategoryName = plot.name.match(/\(([^)]+)\)/)?.[1] || plot.name;
+                        const isUnderAttack = gameState.weeklyPest?.status === 'pending' && gameState.weeklyPest.fieldId === plot.id;
+                        const isWithered = plot.cropStatus === 'withered';
+                        const attackPestId = gameState.weeklyPest?.pestId || 'caterpillar';
+                        const attackPest = isUnderAttack ? (PESTS[attackPestId] || PESTS.caterpillar) : null;
 
                         const chInfo = getChapterForField(plot.id);
                         // Determine stage color badge
@@ -2662,13 +3231,21 @@ if (authMode === 'register') {
                           levelBadgeColor = 'border-purple-500/20 bg-purple-500/10 text-purple-400';
                         }
 
+                        const rarityMeta = cropData ? CROP_RARITY_CONFIG[cropData.rarity] : null;
+
                         return (
                           <button
                             key={plot.id}
                             onClick={() => handleSelectField(plot.id)}
-                            className={`group relative p-3.5 rounded-2xl border text-left transition-all duration-300 hover:scale-[1.03] hover:shadow-lg active:scale-95 flex flex-col justify-between h-[120px] overflow-hidden ${
-                              isIrrigated
+                            className={`group relative p-3.5 rounded-2xl border text-left transition-all duration-300 hover:scale-[1.03] hover:shadow-lg active:scale-95 flex flex-col justify-between h-[126px] overflow-hidden ${
+                              isUnderAttack
+                                ? 'bg-gradient-to-br from-red-950/60 to-[#290d14] border-red-500 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse'
+                                : isWithered
+                                ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/50 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                                : hasCrop
                                 ? 'bg-gradient-to-br from-[#0c1324] to-[#0c2419] border-emerald-500/30 text-emerald-300 shadow-[0_4px_16px_rgba(16,185,129,0.06)]'
+                                : isPendingDraw
+                                ? 'bg-gradient-to-br from-[#1a180f] to-[#14231b] border-amber-400/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)] animate-pulse'
                                 : 'bg-slate-900/60 border-slate-800 hover:bg-[#131d31] hover:border-emerald-400'
                             }`}
                           >
@@ -2677,9 +3254,21 @@ if (authMode === 'register') {
                               <span className={`text-[9px] font-black font-mono tracking-wider border px-1.5 py-0.5 rounded leading-none ${levelBadgeColor}`}>
                                 #{plot.id}
                               </span>
-                              {isIrrigated ? (
-                                <span className="text-[8px] bg-emerald-500/20 text-emerald-300 font-extrabold border border-emerald-500/30 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none">
-                                  ✓ 已收成
+                              {isUnderAttack ? (
+                                <span className="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none animate-bounce">
+                                  ⚠️ 害蟲突襲
+                                </span>
+                              ) : isWithered ? (
+                                <span className="text-[8px] bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/40 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none">
+                                  🥀 枯萎待復育
+                                </span>
+                              ) : hasCrop && cropData ? (
+                                <span className={`text-[8px] font-extrabold border px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none ${rarityMeta?.borderColor} ${rarityMeta?.textColor} bg-slate-950/80`}>
+                                  {rarityMeta?.badge}
+                                </span>
+                              ) : isPendingDraw ? (
+                                <span className="text-[8px] bg-amber-500/20 text-amber-300 font-black border border-amber-400/40 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none animate-bounce">
+                                  🎁 待抽取
                                 </span>
                               ) : (
                                 <span className="text-[8px] bg-slate-950 text-slate-500 px-1.5 py-0.5 rounded border border-slate-800 leading-none">
@@ -2691,20 +3280,36 @@ if (authMode === 'register') {
                             {/* Card Content Row */}
                             <div className="flex items-center gap-2.5 w-full mt-2">
                               <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
-                                isIrrigated 
+                                isUnderAttack
+                                  ? 'bg-red-500/20 text-red-300 ring-2 ring-red-500/40 animate-bounce'
+                                  : isWithered
+                                  ? 'bg-amber-950/50 text-amber-400 ring-2 ring-amber-500/30'
+                                  : hasCrop 
                                   ? 'bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/15' 
+                                  : isPendingDraw
+                                  ? 'bg-amber-500/20 text-amber-300 ring-2 ring-amber-400/30'
                                   : 'bg-slate-950 border border-slate-800/80 text-slate-600'
                               }`}>
-                                <span className="text-2xl">
-                                  {isIrrigated ? getCropEmoji(plot.id) : '🌱'}
+                                <span className={`text-2xl ${isWithered ? 'grayscale opacity-75' : ''}`}>
+                                  {isUnderAttack ? (attackPest?.icon || '🐛') : isWithered ? '🥀' : hasCrop && cropData ? cropData.icon : isPendingDraw ? '🎁' : '🌱'}
                                 </span>
                               </div>
                               <div className="overflow-hidden flex-grow leading-snug">
                                 <h5 className="text-[11px] font-black text-slate-200 truncate group-hover:text-emerald-400 transition-colors leading-tight">
                                   {cleanCategoryName}
                                 </h5>
-                                <p className="text-[9px] text-slate-500 truncate mt-0.5 leading-none">
-                                  作物: {plot.cropName}
+                                <p className="text-[9px] text-slate-400 truncate mt-0.5 leading-none">
+                                  {isUnderAttack ? (
+                                    <span className="text-red-400 font-bold">遭受{attackPest?.name}攻擊！</span>
+                                  ) : isWithered ? (
+                                    <span className="text-amber-300 font-bold">點擊 5 題復育</span>
+                                  ) : hasCrop && cropData ? (
+                                    <span>作物: <strong className="text-slate-200">{cropData.name}</strong></span>
+                                  ) : isPendingDraw ? (
+                                    <span className="text-amber-300 font-bold">點擊抽取作物！</span>
+                                  ) : (
+                                    <span>作物: 未揭曉</span>
+                                  )}
                                 </p>
                                 {plot.bestStreak > 0 ? (
                                   <p className="text-[9px] text-emerald-400/80 font-mono mt-1 font-bold leading-none">
@@ -4291,6 +4896,46 @@ if (authMode === 'register') {
                 </button>
               </div>
 
+              {/* Weekly Pest Invasion Dev / Test Section */}
+              <div className="p-4 bg-emerald-950/20 rounded-2xl border border-emerald-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-emerald-900 block flex items-center gap-1.5">
+                      <span>🐛</span> 每週害蟲入侵事件 (Asia/Taipei 每週六 19:30)
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      當前週次：<code>{gameState.weeklyPest?.weekKey || getTaiwanPestWeekKey()}</code> | 狀態：
+                      <strong className="text-emerald-700 ml-1">
+                        {gameState.weeklyPest?.status === 'pending' ? '⚠️ 入侵防衛中' : gameState.weeklyPest?.status === 'repelled' ? '🛡️ 已成功驅逐' : gameState.weeklyPest?.status === 'withered' ? '🥀 作物枯萎待復育' : gameState.weeklyPest?.status === 'recovered' ? '🌱 已復育救回' : '等待每週入侵'}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      handleDevTriggerPest();
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  >
+                    ⚡ 立即觸發害蟲突襲測試
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      handleDevResetPest();
+                    }}
+                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    🔄 重設本週害蟲事件
+                  </button>
+                </div>
+              </div>
+
               {/* Manual section */}
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
                 <h4 className="font-bold text-amber-900 text-xs font-display">💡 完美通關秘笈與心法：</h4>
@@ -5185,6 +5830,80 @@ if (authMode === 'register') {
       <SecretAchievementDetailModal
         detail={viewingSecretDetail}
         onClose={() => setViewingSecretDetail(null)}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
+      {/* 11. CROP DRAW INTERACTIVE MODAL */}
+      {/* ========================================================= */}
+      {pendingCropDrawFieldId !== null && (
+        <CropDrawModal
+          isOpen={pendingCropDrawFieldId !== null}
+          fieldId={pendingCropDrawFieldId}
+          fieldName={fields.find(f => f.id === pendingCropDrawFieldId)?.name || `第 ${pendingCropDrawFieldId} 區良田`}
+          userKey={currentUser?.userKey || 'guest'}
+          isMuted={isMuted}
+          onDrawComplete={(drawnCrop) => handleCropDrawComplete(drawnCrop)}
+          onPostpone={() => setPendingCropDrawFieldId(null)}
+          onClose={() => setPendingCropDrawFieldId(null)}
+        />
+      )}
+
+      {/* ========================================================= */}
+      {/* 12. CROP PROBABILITY & COMPENDIUM MODAL */}
+      {/* ========================================================= */}
+      <CropProbabilityModal
+        isOpen={isCropProbabilityOpen}
+        onClose={() => setIsCropProbabilityOpen(false)}
+        fields={fields}
+      />
+
+      {/* ========================================================= */}
+      {/* 13. WEEKLY PEST INVASION NOTIFICATION MODAL */}
+      {/* ========================================================= */}
+      <WeeklyPestNotificationModal
+        isOpen={isPestNoticeOpen}
+        pestEvent={gameState.weeklyPest || null}
+        fields={fields}
+        onClose={() => setIsPestNoticeOpen(false)}
+        onGoDefense={() => {
+          setIsPestNoticeOpen(false);
+          setIsPestDefenseOpen(true);
+        }}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
+      {/* 14. WEEKLY PEST DEFENSE CHALLENGE MODAL */}
+      {/* ========================================================= */}
+      <WeeklyPestDefenseModal
+        isOpen={isPestDefenseOpen}
+        pestEvent={gameState.weeklyPest || null}
+        fields={fields}
+        question={currentPestChallengeQuestion}
+        onClose={() => setIsPestDefenseOpen(false)}
+        onDefenseSuccess={handlePestDefenseSuccess}
+        onDefenseFailure={handlePestDefenseFailure}
+        playSynthSound={playSynthSound}
+        isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
+      {/* 15. WEEKLY PEST WITHERED CROP RECOVERY MODAL */}
+      {/* ========================================================= */}
+      <WeeklyPestRecoveryModal
+        isOpen={isPestRecoveryOpen}
+        field={fields.find(f => f.id === (pestRecoveryFieldId || gameState.weeklyPest?.fieldId)) || null}
+        pestEvent={gameState.weeklyPest || null}
+        questions={currentPestRecoveryQuestions}
+        onClose={() => {
+          setIsPestRecoveryOpen(false);
+          setPestRecoveryFieldId(null);
+        }}
+        onRecoveryComplete={handlePestRecoveryComplete}
+        onProgressUpdate={handlePestRecoveryProgressUpdate}
         playSynthSound={playSynthSound}
         isMuted={isMuted}
       />

@@ -1,4 +1,5 @@
 import { CPlusPlusCard, FieldPlot } from '../types';
+import { CROPS } from './crops';
 import { getCh1To3Card } from './chapters/ch1_to_3';
 import { getCh4To6Card } from './chapters/ch4_to_6';
 import { getCh7To9Card } from './chapters/ch7_to_9';
@@ -169,27 +170,6 @@ export const CHAPTERS_DATA: ChapterMeta[] = [
   }
 ];
 
-const CROPS = [
-  { name: '大豆', emoji: '🫛' },
-  { name: '高麗菜', emoji: '🥬' },
-  { name: '玉米', emoji: '🌽' },
-  { name: '胡蘿蔔', emoji: '🥕' },
-  { name: '西瓜', emoji: '🍉' },
-  { name: '草莓', emoji: '🍓' },
-  { name: '松露', emoji: '🍄' },
-  { name: '仙人掌', emoji: '🌵' },
-  { name: '黃金稻穗', emoji: '🌾' },
-  { name: '番茄', emoji: '🍅' },
-  { name: '茄子', emoji: '🍆' },
-  { name: '南瓜', emoji: '🎃' },
-  { name: '洋蔥', emoji: '🧅' },
-  { name: '花椰菜', emoji: '🥦' },
-  { name: '向日葵', emoji: '🌻' },
-  { name: '蘋果', emoji: '🍎' },
-  { name: '檸檬', emoji: '🍋' },
-  { name: '葡萄', emoji: '🍇' }
-];
-
 export const getChapterForField = (fieldId: number): ChapterMeta => {
   const found = CHAPTERS_DATA.find(c => fieldId >= c.startId && fieldId <= c.endId);
   return found || CHAPTERS_DATA[0];
@@ -197,17 +177,19 @@ export const getChapterForField = (fieldId: number): ChapterMeta => {
 
 export const FIELD_PLOTS_DATA: FieldPlot[] = Array.from({ length: 150 }, (_, i) => {
   const id = i + 1;
-  const crop = CROPS[i % CROPS.length];
   const chapter = getChapterForField(id);
 
   return {
     id,
     name: `第 ${id} 區良田 (${chapter.emoji} ${chapter.topic})`,
-    description: `【${chapter.stage}】第 ${chapter.chapter} 章《${chapter.topic}》第 ${id - chapter.startId + 1}/10 關。灌溉收成【${crop.name}】。`,
-    cropName: crop.name,
+    description: `【${chapter.stage}】第 ${chapter.chapter} 章《${chapter.topic}》第 ${id - chapter.startId + 1}/10 關。`,
+    cropName: '未揭曉',
     isIrrigated: false,
     bestStreak: 0,
-    lastAttemptDate: null
+    lastAttemptDate: null,
+    cropId: null,
+    cropDrawPending: false,
+    cropDrawnAt: null
   };
 });
 
@@ -246,3 +228,5 @@ const generateCards = (): CPlusPlusCard[] => {
 };
 
 export const CPP_CARDS_DATA: CPlusPlusCard[] = generateCards();
+
+export { validateQuestionBank } from './questions';

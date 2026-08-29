@@ -23,6 +23,8 @@ export interface CPlusPlusCard {
   correctOption?: number; // 0, 1, 2, 3
 }
 
+export type CropRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+
 export interface FieldPlot {
   id: number;
   name: string;
@@ -31,6 +33,13 @@ export interface FieldPlot {
   isIrrigated: boolean;
   bestStreak: number; // Max correct answers in a row
   lastAttemptDate: string | null;
+  cropId?: string | null;
+  cropDrawPending?: boolean;
+  cropDrawnAt?: string | null;
+  // 每週害蟲入侵狀態欄位 (向後相容)
+  cropStatus?: 'healthy' | 'withered';
+  witheredAt?: string | null;
+  witheredByPestWeek?: string | null;
 }
 
 export interface TortoisePet {
@@ -93,4 +102,13 @@ export interface GameState {
   // 成就系統
   unlockedAchievements?: Record<string, SecretAchievementRecord>;
   achievementStats?: AchievementStats;
+
+  // 每週害蟲入侵系統
+  weeklyPest?: import('./data/pests').WeeklyPestEvent;
+  pestHistory?: import('./data/pests').PestHistoryRecord[];
+  totalPestsRepelled?: number;
+  totalCropsRecovered?: number;
+  pestDefenseWinStreak?: number;
 }
+
+export type { WeeklyPestEvent, PestInfo, PestHistoryRecord } from './data/pests';
