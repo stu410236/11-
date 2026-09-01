@@ -26,6 +26,8 @@ interface QuestionCardRendererProps {
   onShowHint: () => void;
   isLastQuestion?: boolean;
   isReviewMode?: boolean;
+  hintTickets?: number;
+  onUseHintTicket?: () => void;
 }
 
 export const getQuestionTypeMeta = (type?: QuestionType) => {
@@ -111,11 +113,31 @@ export const QuestionCardRenderer: React.FC<QuestionCardRendererProps> = ({
   showHint,
   onShowHint,
   isLastQuestion = false,
-  isReviewMode = false
+  isReviewMode = false,
+  hintTickets = 0,
+  onUseHintTicket
 }) => {
+  const [showTicketConfirm, setShowTicketConfirm] = React.useState(false);
   const meta = getQuestionTypeMeta(question.type);
   const TypeIcon = meta.icon;
   const isMultipleChoice = question.type === 'code_reading' && question.options && question.options.length > 0;
+
+  const handleHintClick = () => {
+    if (showHint) return;
+    if (hintTickets > 0 && onUseHintTicket) {
+      setShowTicketConfirm(true);
+    } else {
+      onShowHint();
+    }
+  };
+
+  const handleConfirmUseTicket = () => {
+    setShowTicketConfirm(false);
+    if (onUseHintTicket) {
+      onUseHintTicket();
+    }
+    onShowHint();
+  };
 
   return (
     <div className="bg-[#0b101c] border-2 border-emerald-500/30 rounded-3xl shadow-2xl overflow-hidden relative text-slate-100 flex flex-col font-sans transition-all duration-300">
@@ -296,10 +318,10 @@ export const QuestionCardRenderer: React.FC<QuestionCardRendererProps> = ({
             {!isAnswered ? (
               <button
                 type="button"
-                onClick={onShowHint}
+                onClick={handleHintClick}
                 className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-bold font-display transition bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3.5 py-1.5 rounded-full cursor-pointer"
               >
-                <HelpCircle className="w-4 h-4" /> 烏龜提示
+                <HelpCircle className="w-4 h-4" /> 烏龜提示 {hintTickets > 0 && <span className="text-[10px] bg-amber-500/20 px-1 rounded text-amber-300">💡×{hintTickets}</span>}
               </button>
             ) : (
               <div className="text-xs text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
@@ -333,6 +355,37 @@ export const QuestionCardRenderer: React.FC<QuestionCardRendererProps> = ({
             )}
           </div>
         </div>
+
+        {/* Hint Ticket Confirmation Prompt */}
+        {showTicketConfirm && !isAnswered && (
+          <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/50 text-xs text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">💡</span>
+              <div>
+                <span className="font-bold text-amber-300">是否使用 1 張提示券？</span>
+                <span className="text-[11px] text-amber-200/80 block">
+                  消耗 1 張提示券獲得小綠龜智慧提點（目前持有：💡 ×{hintTickets}）
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setShowTicketConfirm(false)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUseTicket}
+                className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow transition"
+              >
+                💡 確認使用提示券
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Hint Box */}
         {showHint && !isAnswered && (

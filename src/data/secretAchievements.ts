@@ -379,6 +379,21 @@ export const SECRET_ACHIEVEMENTS: SecretAchievementDefinition[] = [
       const count = gameState.achievementStats?.turtleTrainCount ?? 0;
       return count >= 20;
     }
+  },
+
+  // 19. 🌈 神籤降臨
+  {
+    id: 'secret_fukubiki_special',
+    title: '神籤降臨',
+    badgeId: 'fukubiki_special',
+    badgeEmoji: '🌈',
+    rarity: 'mythic',
+    description: '在豐收福引所中首次抽中【🌈 特等】大獎！',
+    quote: '「天選之運！神光普照良田，福引最高殊榮降臨。」',
+    reward: { coins: 500, cabbages: 5, waterBuckets: 5 },
+    check: ({ gameState }) => {
+      return (gameState.lotteryStats?.specialWins ?? 0) >= 1;
+    }
   }
 ];
 

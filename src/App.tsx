@@ -80,7 +80,10 @@ import {
   ShoppingBag,
   Tag,
   Shield,
-  Timer
+  Timer,
+  MoreHorizontal,
+  LogOut,
+  Key
 } from 'lucide-react';
 import { CPP_CARDS_DATA, FIELD_PLOTS_DATA, CHAPTERS_DATA, getChapterForField } from './data/cppCards';
 import { CPlusPlusCard, FieldPlot, TortoisePet, GameState, DailyChallengeState, SecretAchievementRecord } from './types';
@@ -128,10 +131,22 @@ import {
 import { WeeklyPestNotificationModal } from './components/WeeklyPestNotificationModal';
 import { WeeklyPestDefenseModal } from './components/WeeklyPestDefenseModal';
 import { WeeklyPestRecoveryModal } from './components/WeeklyPestRecoveryModal';
+import { HarvestFukubikiModal } from './components/HarvestFukubikiModal';
+import { InventoryModal } from './components/InventoryModal';
+import { ShopModal } from './components/ShopModal';
+import { GAME_ITEMS } from './data/items';
+import { 
+  LOTTERY_TIERS, 
+  LOTTERY_PRIZES, 
+  formatPrizeItemsSummary, 
+  createDefaultLotteryStats 
+} from './data/lottery';
+import { COIN_SHOP_ITEMS, DIAMOND_SHOP_ITEMS, ALL_SHOP_ITEMS } from './data/shop';
+import { LotteryTier, LotteryPrizeBundle, LotteryStats, LotteryHistoryRecord, ShopItem, ShopStats, ShopHistoryRecord } from './types';
 import { sanitizeForFirestore } from './utils/firestoreSanitizer';
 
 // Web Audio API 音效合成器
-function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed' | 'water' | 'pet' | 'levelUp', isMuted: boolean) {
+function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed' | 'water' | 'pet' | 'levelUp' | 'success' | 'coin', isMuted: boolean) {
   if (isMuted) return;
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -150,6 +165,29 @@ function playSynthSound(type: 'correct' | 'wrong' | 'click' | 'irrigate' | 'feed
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(now + 0.08);
+    } else if (type === 'coin' || type === 'success') {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.setValueAtTime(880.00, now + 0.08); // A5
+      
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(1174.66, now + 0.12); // D6
+      
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc1.start();
+      osc2.start();
+      osc1.stop(now + 0.3);
+      osc2.stop(now + 0.3);
     } else if (type === 'correct') {
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
@@ -621,8 +659,8 @@ export const ACCESSORY_SHOP_ITEMS: AccessoryItem[] = [
 
 export default function App() {
   // === 0. Tab 選擇狀態 ===
-  // 支援的地圖 tab 分類：'farm' | 'cards' | 'pet' | 'stats' | 'achievements' | 'settings'
-  const [currentTab, setCurrentTab] = useState<'farm' | 'cards' | 'pet' | 'stats' | 'achievements' | 'settings'>('farm');
+  // 支援的地圖 tab 分類：'farm' | 'cards' | 'pet' | 'achievements' | 'more' | 'stats' | 'settings'
+  const [currentTab, setCurrentTab] = useState<'farm' | 'cards' | 'pet' | 'achievements' | 'more' | 'stats' | 'settings'>('farm');
 
   // === 0.5. 預設初始狀態產生器與帳號 Key 輔助函式 ===
   const createDefaultGameState = (): GameState => ({
@@ -653,7 +691,21 @@ export default function App() {
     pestHistory: [],
     totalPestsRepelled: 0,
     totalCropsRecovered: 0,
-    pestDefenseWinStreak: 0
+    pestDefenseWinStreak: 0,
+
+    // 🌾 豐收福引所 (HARVEST FUKUBIKI) 系統
+    lotteryTickets: 0,
+    diamonds: 0,
+    hintTickets: 0,
+    pesticides: 0,
+    pestNets: 0,
+    recoveryFertilizers: 0,
+    tortoiseTreats: 0,
+    plantMilestoneTicketsGranted: 0,
+    dailyPerfectTicketGrantedDate: undefined,
+    lotteryStats: createDefaultLotteryStats(),
+    lotteryHistory: [],
+    lotterySystemStartedAt: new Date().toISOString()
   });
 
   const createDefaultFields = (): FieldPlot[] => FIELD_PLOTS_DATA.map(f => ({
@@ -666,7 +718,8 @@ export default function App() {
     cropDrawnAt: null,
     cropStatus: 'healthy',
     witheredAt: null,
-    witheredByPestWeek: null
+    witheredByPestWeek: null,
+    pestNetEquipped: false
   }));
 
   const createDefaultTortoise = (): TortoisePet => ({
@@ -751,7 +804,8 @@ export default function App() {
             cropDrawnAt: saved?.cropDrawnAt ?? null,
             cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
             witheredAt: saved?.witheredAt ?? null,
-            witheredByPestWeek: saved?.witheredByPestWeek ?? null
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null,
+            pestNetEquipped: saved ? !!saved.pestNetEquipped : false
           };
         });
       } catch (e) {}
@@ -860,6 +914,15 @@ export default function App() {
   const [pestRecoveryFieldId, setPestRecoveryFieldId] = useState<number | null>(null);
   const [hasAutoPromptedPestNotice, setHasAutoPromptedPestNotice] = useState<boolean>(false);
 
+  // === 4.65. 🌾 豐收福引所 (HARVEST FUKUBIKI) 專屬狀態 ===
+  const [isHarvestFukubikiOpen, setIsHarvestFukubikiOpen] = useState<boolean>(false);
+
+  // === 4.66. 🎒 農場物資背包專屬狀態 ===
+  const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(false);
+
+  // === 4.67. 🏪 農場商店 (FARM SHOP) 專屬狀態 ===
+  const [isShopOpen, setIsShopOpen] = useState<boolean>(false);
+
   // === 隱藏成就檢測與解鎖核心函式 ===
   const checkAndUnlockSecretAchievements = (params?: {
     customGameState?: GameState;
@@ -902,6 +965,7 @@ export default function App() {
     let addCoins = 0;
     let addCabbages = 0;
     let addWater = 0;
+    const addTickets = newlyUnlocked.length; // 每個新解鎖成就獎勵 1 張福引券
     const updatedUnlocked: Record<string, SecretAchievementRecord> = { ...unlockedMap };
 
     newlyUnlocked.forEach(def => {
@@ -924,6 +988,7 @@ export default function App() {
         coins: prev.coins + addCoins,
         cabbages: prev.cabbages + addCabbages,
         waterBuckets: prev.waterBuckets + addWater,
+        lotteryTickets: (prev.lotteryTickets ?? 0) + addTickets,
         unlockedAchievements: {
           ...(prev.unlockedAchievements || {}),
           ...updatedUnlocked,
@@ -998,7 +1063,7 @@ export default function App() {
       return;
     }
 
-    const stepTargets: { [key: number]: { id: string; tab: 'farm' | 'cards' | 'pet' | 'stats' | 'achievements' | 'settings' } } = {
+    const stepTargets: { [key: number]: { id: string; tab: 'farm' | 'cards' | 'pet' | 'achievements' | 'more' | 'stats' | 'settings' } } = {
       0: { id: '', tab: 'farm' }, // 歡迎畫面
       1: { id: 'map-difficulty-select', tab: 'farm' }, // 難度篩選
       2: { id: 'plot-card-1', tab: 'farm' }, // 第一個田地
@@ -1335,7 +1400,8 @@ if (userSnap.exists()) {
             cropDrawnAt: saved?.cropDrawnAt ?? null,
             cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
             witheredAt: saved?.witheredAt ?? null,
-            witheredByPestWeek: saved?.witheredByPestWeek ?? null
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null,
+            pestNetEquipped: saved ? !!saved.pestNetEquipped : false
           };
         }));
       } else {
@@ -1453,7 +1519,8 @@ if (userSnap.exists()) {
             cropDrawnAt: saved?.cropDrawnAt ?? null,
             cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
             witheredAt: saved?.witheredAt ?? null,
-            witheredByPestWeek: saved?.witheredByPestWeek ?? null
+            witheredByPestWeek: saved?.witheredByPestWeek ?? null,
+            pestNetEquipped: saved ? !!saved.pestNetEquipped : false
           };
         }));
       } else {
@@ -1664,7 +1731,8 @@ if (authMode === 'register') {
           cropDrawnAt: saved?.cropDrawnAt ?? null,
           cropStatus: saved?.cropStatus ?? (cropId ? 'healthy' : undefined),
           witheredAt: saved?.witheredAt ?? null,
-          witheredByPestWeek: saved?.witheredByPestWeek ?? null
+          witheredByPestWeek: saved?.witheredByPestWeek ?? null,
+          pestNetEquipped: saved ? !!saved.pestNetEquipped : false
         };
       })
     );
@@ -1835,7 +1903,7 @@ if (authMode === 'register') {
   }, [hasAutoOpenedDailyChallenge, gameState.dailyChallenge?.lastCompletedDate, todayDateKey, openOnboarding]);
 
   // === 每日限定挑戰完成處理函式 ===
-  const handleCompleteDailyChallenge = (questionId: string) => {
+  const handleCompleteDailyChallenge = (questionId: string, isFirstAttempt?: boolean) => {
     // 嚴格防範重複領取
     if (gameState.dailyChallenge?.lastCompletedDate === todayDateKey) {
       return;
@@ -1848,6 +1916,9 @@ if (authMode === 'register') {
       gameState.dailyChallenge?.bestStreak || 0
     );
 
+    // 判斷是否為今日首次提交即正確且未曾發放過今日完美券
+    const shouldGrantPerfectTicket = !!isFirstAttempt && (gameState.dailyPerfectTicketGrantedDate !== todayDateKey);
+
     // 1. 更新遊戲資源與挑戰存檔
     let nextGS: GameState | null = null;
     setGameState(prev => {
@@ -1858,6 +1929,8 @@ if (authMode === 'register') {
         coins: prev.coins + DAILY_CHALLENGE_REWARD.coins,
         cabbages: prev.cabbages + DAILY_CHALLENGE_REWARD.cabbages,
         waterBuckets: prev.waterBuckets + DAILY_CHALLENGE_REWARD.waterBuckets,
+        lotteryTickets: (prev.lotteryTickets ?? 0) + (shouldGrantPerfectTicket ? 1 : 0),
+        dailyPerfectTicketGrantedDate: shouldGrantPerfectTicket ? todayDateKey : prev.dailyPerfectTicketGrantedDate,
         dailyChallenge: {
           lastCompletedDate: todayDateKey,
           streak: streakResult.newStreak,
@@ -1899,12 +1972,254 @@ if (authMode === 'register') {
 
     // 4. 播放特效與提示訊息
     playSynthSound('levelUp', isMuted);
-    setClaimFeedback(`🎉 今日限定挑戰完成！獲得金幣 +${DAILY_CHALLENGE_REWARD.coins}、高麗菜 +${DAILY_CHALLENGE_REWARD.cabbages}、聖泉水 +${DAILY_CHALLENGE_REWARD.waterBuckets}、烏龜經驗值 +${DAILY_CHALLENGE_REWARD.tortoiseXp}！`);
+    const feedbackMsg = shouldGrantPerfectTicket
+      ? `🎉 一擊即中！今日限定挑戰首次提交即完全正確！獲得金幣 +${DAILY_CHALLENGE_REWARD.coins}、高麗菜 +${DAILY_CHALLENGE_REWARD.cabbages}、聖泉水 +${DAILY_CHALLENGE_REWARD.waterBuckets}、烏龜經驗值 +${DAILY_CHALLENGE_REWARD.tortoiseXp}，並額外獲得【🎟️ 福引券 ×1】！`
+      : `🎉 今日限定挑戰完成！獲得金幣 +${DAILY_CHALLENGE_REWARD.coins}、高麗菜 +${DAILY_CHALLENGE_REWARD.cabbages}、聖泉水 +${DAILY_CHALLENGE_REWARD.waterBuckets}、烏龜經驗值 +${DAILY_CHALLENGE_REWARD.tortoiseXp}！`;
+    setClaimFeedback(feedbackMsg);
     setTimeout(() => setClaimFeedback(null), 5000);
+
+    if (shouldGrantPerfectTicket) {
+      setTortoiseSpeech(`「太厲害了！今日限定挑戰【第 1 次提交】即完全答對！除了每日獎勵，還額外獲得【福引券 ×1】🎟️！」`);
+    }
 
     if (nextGS) {
       checkAndUnlockSecretAchievements({ customGameState: nextGS });
     }
+  };
+
+  // 🌾 豐收福引所：初次載入或狀態變化時，自動校正與核發已達成但尚未領取的農田里程碑福引券
+  useEffect(() => {
+    const plantedCount = fields.filter(f => f.isIrrigated && !!f.cropId).length;
+    const earnedMilestones = Math.floor(plantedCount / 5);
+    const alreadyGranted = gameState.plantMilestoneTicketsGranted ?? 0;
+    if (earnedMilestones > alreadyGranted) {
+      const diff = earnedMilestones - alreadyGranted;
+      setGameState(prev => ({
+        ...prev,
+        lotteryTickets: (prev.lotteryTickets ?? 0) + diff,
+        plantMilestoneTicketsGranted: earnedMilestones
+      }));
+    }
+  }, [fields]);
+
+  // === 4.68. 🌾 豐收福引所 (HARVEST FUKUBIKI) 抽獎處理核心函式 ===
+  const handleExecuteLotteryDraw = (tier: LotteryTier, prize: LotteryPrizeBundle) => {
+    // 檢查是否有足夠福引券
+    if ((gameState.lotteryTickets ?? 0) <= 0) {
+      return;
+    }
+
+    const formattedNow = getTaiwanFormattedNow();
+    let addCoins = 0;
+    let addDiamonds = 0;
+    let addHintTickets = 0;
+    let addPesticides = 0;
+    let addPestNets = 0;
+    let addRecoveryFertilizers = 0;
+    let addTortoiseTreats = 0;
+    let addWater = 0;
+    let addCabbage = 0;
+
+    prize.items.forEach(item => {
+      switch (item.type) {
+        case 'coins':
+          addCoins += item.amount;
+          break;
+        case 'diamonds':
+          addDiamonds += item.amount;
+          break;
+        case 'hintTickets':
+          addHintTickets += item.amount;
+          break;
+        case 'pesticides':
+          addPesticides += item.amount;
+          break;
+        case 'pestNets':
+          addPestNets += item.amount;
+          break;
+        case 'recoveryFertilizers':
+          addRecoveryFertilizers += item.amount;
+          break;
+        case 'tortoiseTreats':
+          addTortoiseTreats += item.amount;
+          break;
+        case 'water':
+          addWater += item.amount;
+          break;
+        case 'cabbage':
+          addCabbage += item.amount;
+          break;
+      }
+    });
+
+    const newHistoryRecord: LotteryHistoryRecord = {
+      id: `draw_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      tier: tier.id,
+      prizeId: prize.id,
+      prizeTitle: prize.title,
+      itemsSummary: formatPrizeItemsSummary(prize.items),
+      drawnAt: formattedNow
+    };
+
+    let updatedGameState: GameState | null = null;
+
+    setGameState(prev => {
+      const prevStats: LotteryStats = prev.lotteryStats || {
+        totalDraws: 0,
+        specialWins: 0,
+        firstWins: 0,
+        secondWins: 0,
+        thirdWins: 0
+      };
+
+      const updatedStats: LotteryStats = {
+        totalDraws: prevStats.totalDraws + 1,
+        specialWins: prevStats.specialWins + (tier.id === 'special' ? 1 : 0),
+        firstWins: prevStats.firstWins + (tier.id === 'first' ? 1 : 0),
+        secondWins: prevStats.secondWins + (tier.id === 'second' ? 1 : 0),
+        thirdWins: prevStats.thirdWins + (tier.id === 'third' ? 1 : 0)
+      };
+
+      const prevHistory = prev.lotteryHistory || [];
+      const updatedHistory = [newHistoryRecord, ...prevHistory].slice(0, 30);
+
+      const nextState: GameState = {
+        ...prev,
+        lotteryTickets: Math.max(0, (prev.lotteryTickets ?? 0) - 1),
+        coins: prev.coins + addCoins,
+        diamonds: (prev.diamonds ?? 0) + addDiamonds,
+        hintTickets: (prev.hintTickets ?? 0) + addHintTickets,
+        pesticides: (prev.pesticides ?? 0) + addPesticides,
+        pestNets: (prev.pestNets ?? 0) + addPestNets,
+        recoveryFertilizers: (prev.recoveryFertilizers ?? 0) + addRecoveryFertilizers,
+        tortoiseTreats: (prev.tortoiseTreats ?? 0) + addTortoiseTreats,
+        waterBuckets: prev.waterBuckets + addWater,
+        cabbages: prev.cabbages + addCabbage,
+        lotteryStats: updatedStats,
+        lotteryHistory: updatedHistory
+      };
+
+      updatedGameState = nextState;
+      return nextState;
+    });
+
+    // 烏龜說話提示
+    if (tier.id === 'special') {
+      setTortoiseSpeech(`「天啊！太不可思議了！居然抽中了【🌈 特等】${prize.title}！神光庇佑良田！」`);
+    } else if (tier.id === 'first') {
+      setTortoiseSpeech(`「太旺了！抽中了【🥇 一等】${prize.title}！獲得豐盛的寶物！」`);
+    } else if (tier.id === 'second') {
+      setTortoiseSpeech(`「手氣真好！抽中了【🥈 二等】${prize.title}！」`);
+    } else {
+      setTortoiseSpeech(`「抽中了【🥉 三等】${prize.title}！良田收穫滿滿！」`);
+    }
+
+    // 觸發成就檢查 (例如特等成就)
+    if (updatedGameState) {
+      checkAndUnlockSecretAchievements({ customGameState: updatedGameState });
+    }
+  };
+
+  // 測試專用加券 (DEV 模式)
+  const handleAddTestLotteryTicket = () => {
+    setGameState(prev => ({
+      ...prev,
+      lotteryTickets: (prev.lotteryTickets ?? 0) + 1
+    }));
+    playSynthSound('click', isMuted);
+  };
+
+  // === 4.67. 🏪 農場商店 (FARM SHOP) 購買核心處理函式 ===
+  const handleExecuteShopPurchase = (item: ShopItem): boolean => {
+    let success = false;
+    let updatedGameState: GameState | null = null;
+
+    setGameState(prev => {
+      const isCoins = item.currency === 'coins';
+      const currentBalance = isCoins ? prev.coins : (prev.diamonds ?? 0);
+
+      // 二次防線：確認餘額足夠，嚴格防止貨幣變成負數
+      if (currentBalance < item.price) {
+        return prev;
+      }
+
+      const prevStats: ShopStats = prev.shopStats || {
+        totalPurchases: 0,
+        totalCoinsSpent: 0,
+        totalDiamondsSpent: 0
+      };
+
+      const updatedStats: ShopStats = {
+        totalPurchases: prevStats.totalPurchases + 1,
+        totalCoinsSpent: prevStats.totalCoinsSpent + (isCoins ? item.price : 0),
+        totalDiamondsSpent: prevStats.totalDiamondsSpent + (!isCoins ? item.price : 0)
+      };
+
+      const newHistoryRecord: ShopHistoryRecord = {
+        id: `shop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        shopItemId: item.id,
+        itemId: item.itemId,
+        name: item.name,
+        amount: item.amount,
+        currency: item.currency,
+        price: item.price,
+        purchasedAt: new Date().toISOString()
+      };
+
+      const prevHistory = prev.shopHistory || [];
+      const updatedHistory = [newHistoryRecord, ...prevHistory].slice(0, 30);
+
+      // 扣除貨幣 (雙重保護 Math.max(0))
+      const nextCoins = isCoins ? Math.max(0, prev.coins - item.price) : prev.coins;
+      const nextDiamonds = !isCoins ? Math.max(0, (prev.diamonds ?? 0) - item.price) : (prev.diamonds ?? 0);
+
+      // 增加商品道具 (直接累加至既有 Inventory 各項欄位)
+      const nextHintTickets = (prev.hintTickets ?? 0) + (item.itemId === 'hintTickets' ? item.amount : 0);
+      const nextTortoiseTreats = (prev.tortoiseTreats ?? 0) + (item.itemId === 'tortoiseTreats' ? item.amount : 0);
+      const nextCabbages = prev.cabbages + (item.itemId === 'cabbages' ? item.amount : 0);
+      const nextWater = prev.waterBuckets + (item.itemId === 'waterBuckets' ? item.amount : 0);
+      const nextPesticides = (prev.pesticides ?? 0) + (item.itemId === 'pesticides' ? item.amount : 0);
+      const nextPestNets = (prev.pestNets ?? 0) + (item.itemId === 'pestNets' ? item.amount : 0);
+      const nextRecoveryFertilizers = (prev.recoveryFertilizers ?? 0) + (item.itemId === 'recoveryFertilizers' ? item.amount : 0);
+
+      const nextState: GameState = {
+        ...prev,
+        coins: nextCoins,
+        diamonds: nextDiamonds,
+        hintTickets: nextHintTickets,
+        tortoiseTreats: nextTortoiseTreats,
+        cabbages: nextCabbages,
+        waterBuckets: nextWater,
+        pesticides: nextPesticides,
+        pestNets: nextPestNets,
+        recoveryFertilizers: nextRecoveryFertilizers,
+        shopStats: updatedStats,
+        shopHistory: updatedHistory
+      };
+
+      updatedGameState = nextState;
+      success = true;
+      return nextState;
+    });
+
+    if (success) {
+      setTortoiseSpeech(`「成功採購【${item.name}】！物資已安全送達道具背包囉！」`);
+      if (updatedGameState) {
+        checkAndUnlockSecretAchievements({ customGameState: updatedGameState });
+      }
+    }
+
+    return success;
+  };
+
+  // 測試專用加金幣/鑽石 (DEV 模式)
+  const handleAddTestCurrency = (type: 'coins' | 'diamonds', amount: number) => {
+    setGameState(prev => ({
+      ...prev,
+      coins: type === 'coins' ? prev.coins + amount : prev.coins,
+      diamonds: type === 'diamonds' ? (prev.diamonds ?? 0) + amount : (prev.diamonds ?? 0)
+    }));
+    playSynthSound('click', isMuted);
   };
 
   // === 4.7. 灌溉挑戰倒數計時器核心邏輯 (已移除計時限制) ===
@@ -1991,7 +2306,25 @@ if (authMode === 'register') {
       return updatedFields;
     });
 
-    setTortoiseSpeech(`「太棒了！第 ${targetId} 區良田抽到了【${drawnCrop.name}】${drawnCrop.icon}（${drawnCrop.englishName}，${drawnCrop.rarity.toUpperCase()}）！真是好兆頭！」`);
+    // 檢查農田種植里程碑 (每 5 塊不同農田種植成功 -> +1 福引券)
+    const plantedCount = updatedFields.filter(f => f.isIrrigated && !!f.cropId).length;
+    const earnedMilestones = Math.floor(plantedCount / 5);
+    
+    setGameState(prev => {
+      const alreadyGranted = prev.plantMilestoneTicketsGranted ?? 0;
+      if (earnedMilestones > alreadyGranted) {
+        const diff = earnedMilestones - alreadyGranted;
+        setTortoiseSpeech(`「太棒了！第 ${targetId} 區良田抽到了【${drawnCrop.name}】${drawnCrop.icon}！目前已累計種植 ${plantedCount} 塊良田，達成里程碑，獲得【福引券 ×${diff}】🎟️！」`);
+        return {
+          ...prev,
+          lotteryTickets: (prev.lotteryTickets ?? 0) + diff,
+          plantMilestoneTicketsGranted: earnedMilestones
+        };
+      } else {
+        setTortoiseSpeech(`「太棒了！第 ${targetId} 區良田抽到了【${drawnCrop.name}】${drawnCrop.icon}（${drawnCrop.englishName}，${drawnCrop.rarity.toUpperCase()}）！真是好兆頭！」`);
+        return prev;
+      }
+    });
   };
 
   // === 4.8. 每週害蟲入侵事件處理函式 ===
@@ -2430,6 +2763,33 @@ if (authMode === 'register') {
     setTortoiseSpeech('「嚼嚼嚼...這顆新鮮的高麗菜真甜！感謝主人，我有力氣幫你巡田水了！」');
   };
 
+  // 餵食烏龜 (烏龜點心 🍪 XP +50)
+  const handleFeedTortoiseTreat = () => {
+    if ((gameState.tortoiseTreats ?? 0) <= 0) {
+      setTortoiseSpeech('「嗚嗚...我們沒有烏龜點心了。可以去豐收福引所試試手氣抽點心給我吃！」');
+      return;
+    }
+
+    playSynthSound('levelUp', isMuted);
+    setPetActionEffect('🍪 餵食烏龜點心！XP +50 (幸福感 +15)');
+    setTimeout(() => setPetActionEffect(null), 3000);
+
+    setGameState(prev => ({
+      ...prev,
+      tortoiseTreats: Math.max(0, (prev.tortoiseTreats ?? 0) - 1)
+    }));
+
+    setTortoise(prev => ({
+      ...prev,
+      happiness: Math.min(100, prev.happiness + 15),
+      fullness: Math.min(100, prev.fullness + 10),
+      hydration: Math.min(100, prev.hydration + 10)
+    }));
+
+    handleTortoiseXp(50);
+    setTortoiseSpeech('「嚼嚼嚼...哇！這是我最愛的手作烏龜點心！全身充滿了寫 C++ 的靈感與能量！」');
+  };
+
   // 給水 (聖泉水)
   const handleWaterTortoise = () => {
     if (gameState.waterBuckets <= 0) {
@@ -2449,6 +2809,32 @@ if (authMode === 'register') {
     }));
     handleTortoiseXp(15);
     setTortoiseSpeech('「咕嚕咕嚕...哈！聖泉水冰冰涼涼的好舒服，邏輯思維瞬間清晰了起來！」');
+  };
+
+  // 裝備防蟲網到指定田地
+  const handleEquipPestNet = (fieldId: number) => {
+    if ((gameState.pestNets ?? 0) <= 0) {
+      setTortoiseSpeech('「我們沒有多餘的防蟲網囉！可以去豐收福引所試試手氣抽取防蟲網！」');
+      return;
+    }
+    const target = fields.find(f => f.id === fieldId);
+    if (!target) return;
+    if (target.cropStatus === 'withered') {
+      setTortoiseSpeech('「這塊田地的作物已經枯萎了，請先使用復甦肥料或完成 5 題複習進行復育喔！」');
+      return;
+    }
+    if (target.pestNetEquipped) {
+      setTortoiseSpeech('「這塊田地已經裝備了防蟲網，受到嚴密保護囉！」');
+      return;
+    }
+
+    playSynthSound('levelUp', isMuted);
+    setGameState(prev => ({
+      ...prev,
+      pestNets: Math.max(0, (prev.pestNets ?? 0) - 1)
+    }));
+    setFields(prev => prev.map(f => f.id === fieldId ? { ...f, pestNetEquipped: true } : f));
+    setTortoiseSpeech(`「🛡️ 成功為第 ${fieldId} 區良田【${target.name}】裝備防蟲網！遭遇害蟲入侵時將自動提供額外防護！」`);
   };
 
   // 摸摸烏龜
@@ -2688,10 +3074,10 @@ if (authMode === 'register') {
             </div>
           </div>
 
-          {/* 帳號登入與靜音快速工具 */}
-          <div className="flex items-center gap-2">
+          {/* 帳號登入與音效控制 */}
+          <div className="flex items-center gap-2.5">
             {currentUser ? (
-              <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 pl-2 pr-1.5 py-1 rounded-full text-xs shadow-inner">
+              <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/30 pl-2.5 pr-2 py-1 rounded-full text-xs shadow-inner">
                 {currentUser.authType === 'google' ? (
                   <span className="text-xs" title="Google 登入帳號">🌐</span>
                 ) : currentUser.authType === 'anonymous' ? (
@@ -2707,7 +3093,7 @@ if (authMode === 'register') {
                     setNewNicknameInput(currentUser.username);
                     setIsNicknameModalOpen(true);
                   }}
-                  className="flex items-center gap-1 text-emerald-200 hover:text-white font-medium max-w-[110px] truncate transition group cursor-pointer"
+                  className="flex items-center gap-1 text-emerald-200 hover:text-white font-medium max-w-[120px] truncate transition group cursor-pointer"
                   title="點擊修改暱稱"
                 >
                   <span className="truncate">{currentUser.username}</span>
@@ -2719,14 +3105,6 @@ if (authMode === 'register') {
                 ) : (
                   <span className="text-[9px] text-emerald-400/40 font-mono">已同步</span>
                 )}
-
-                <button
-                  onClick={handleLogout}
-                  className="text-slate-400 hover:text-rose-400 transition ml-0.5 px-1.5 py-0.5 rounded hover:bg-rose-500/10 text-[11px] font-bold"
-                  title="登出帳號"
-                >
-                  登出
-                </button>
               </div>
             ) : (
               <button
@@ -2738,63 +3116,18 @@ if (authMode === 'register') {
                   setAuthSuccess(null);
                   setIsAuthModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 border border-emerald-500/40 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold transition font-display shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 border border-emerald-500/40 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold transition font-display shadow-sm active:scale-95 cursor-pointer"
               >
                 <span>🔑 登入 / 建立暱稱</span>
               </button>
             )}
 
-            {/* 📅 今日 C++ 限定挑戰按鈕 */}
-            <button
-              onClick={() => {
-                playSynthSound('click', isMuted);
-                setIsDailyChallengeOpen(true);
-              }}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition font-display border shadow-sm ${
-                isDailyChallengeCompletedToday
-                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
-                  : 'bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 border-amber-400/50 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.2)] animate-pulse'
-              }`}
-              title="每日 C++ 限定挑戰 (每日 1 題)"
-            >
-              <span className="text-xs">📅</span>
-              <span className="hidden sm:inline">今日限定題</span>
-              {isDailyChallengeCompletedToday ? (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-mono">
-                  ✓ 完成
-                </span>
-              ) : (
-                <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
-                  NEW
-                </span>
-              )}
-            </button>
-
-            {/* 📅 每日任務按鈕 */}
-            <button
-              onClick={() => {
-                playSynthSound('click', isMuted);
-                setIsDailyQuestOpen(true);
-              }}
-              className="relative p-1.5 rounded-full bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/30 text-emerald-300 transition"
-              title="每日任務"
-            >
-              <Calendar className="w-4 h-4" />
-              {/* Unclaimed Notification Badge */}
-              {hasUnclaimedQuests && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-500 border border-slate-950 rounded-full animate-ping"></span>
-              )}
-              {hasUnclaimedQuests && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-500 border border-slate-950 rounded-full"></span>
-              )}
-            </button>
-
             <button
               onClick={() => setIsMuted(!isMuted)}
-              className="p-1.5 rounded-full bg-black/10 text-white/80 hover:text-white hover:bg-black/20 transition"
+              className="p-1.5 rounded-full bg-black/20 text-slate-300 hover:text-white hover:bg-black/40 border border-white/10 transition cursor-pointer"
               title={isMuted ? '開啟音效' : '關閉音效'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
             </button>
           </div>
         </div>
@@ -2843,6 +3176,123 @@ if (authMode === 'register') {
             
             {activeFieldId === null ? (
               <>
+                {/* 0. 首頁 4 格快捷入口 (UNIFORM QUICK ACTION CARDS) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Card 1: 今日限定題 */}
+                  <button
+                    id="quick-action-daily-challenge"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsDailyChallengeOpen(true);
+                    }}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 to-[#0e1f18]/90 border border-emerald-500/30 hover:border-emerald-400/70 shadow-lg hover:shadow-emerald-500/10 transition-all text-left flex flex-col justify-between group active:scale-[0.98] cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                        📅
+                      </div>
+                      {isDailyChallengeCompletedToday ? (
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                          ✓ 已完成
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse font-mono shadow-sm">
+                          未挑戰
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-300 transition font-display flex items-center gap-1">
+                        今日限定題
+                      </h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                        每日 1 題・連勝加成
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 2: 農場商店 */}
+                  <button
+                    id="quick-action-farm-shop"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsShopOpen(true);
+                    }}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 to-[#19112a]/90 border border-purple-500/30 hover:border-purple-400/70 shadow-lg hover:shadow-purple-500/10 transition-all text-left flex flex-col justify-between group active:scale-[0.98] cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                        🏪
+                      </div>
+                      <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                        物資採購
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-purple-300 transition font-display flex items-center gap-1">
+                        農場商店
+                      </h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                        金幣補給・鑽石珍稀
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 3: 豐收福引所 */}
+                  <button
+                    id="quick-action-fukubiki"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsHarvestFukubikiOpen(true);
+                    }}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 to-[#1f190e]/90 border border-amber-500/30 hover:border-amber-400/70 shadow-lg hover:shadow-amber-500/10 transition-all text-left flex flex-col justify-between group active:scale-[0.98] cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                        🌾
+                      </div>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                        🎟️ {gameState.lotteryTickets ?? 0}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition font-display flex items-center gap-1">
+                        豐收福引所
+                      </h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                        傳統木箱・特等大獎
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 4: 道具背包 */}
+                  <button
+                    id="quick-action-inventory"
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsInventoryOpen(true);
+                    }}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-slate-900/90 to-[#0e1d24]/90 border border-teal-500/30 hover:border-teal-400/70 shadow-lg hover:shadow-teal-500/10 transition-all text-left flex flex-col justify-between group active:scale-[0.98] cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                        🎒
+                      </div>
+                      <span className="text-[10px] bg-teal-500/20 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                        {((gameState.hintTickets ?? 0) + (gameState.pesticides ?? 0) + (gameState.pestNets ?? 0) + (gameState.recoveryFertilizers ?? 0) + (gameState.tortoiseTreats ?? 0))} 件
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-teal-300 transition font-display flex items-center gap-1">
+                        道具背包
+                      </h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                        戰略道具・隨時使用
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
                 {/* ⚠️ 每週害蟲入侵警報橫幅 */}
                 {gameState.weeklyPest?.status === 'pending' && (() => {
                   const pestId = gameState.weeklyPest?.pestId || 'caterpillar';
@@ -2943,12 +3393,19 @@ if (authMode === 'register') {
                   </div>
 
                   {/* 資源狀態列 */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div className="flex items-center justify-center gap-2 py-2 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center">
                       <span className="text-base">🪙</span>
                       <div>
                         <span className="text-[9px] text-amber-500/50 block font-mono leading-none">CREDITS</span>
                         <span className="text-xs font-black text-amber-400 font-display">{gameState.coins} CR</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 py-2 px-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-center">
+                      <span className="text-base">💎</span>
+                      <div>
+                        <span className="text-[9px] text-cyan-400/50 block font-mono leading-none">DIAMONDS</span>
+                        <span className="text-xs font-black text-cyan-300 font-display">{gameState.diamonds ?? 0}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-center">
@@ -2965,6 +3422,19 @@ if (authMode === 'register') {
                         <span className="text-xs font-black text-blue-400 font-display">{gameState.waterBuckets} CELL</span>
                       </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        playSynthSound('click', isMuted);
+                        setIsInventoryOpen(true);
+                      }}
+                      className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/40 rounded-xl border border-emerald-500/40 text-emerald-200 transition font-bold text-xs shadow-sm cursor-pointer active:scale-95"
+                    >
+                      <span className="text-base">🎒</span>
+                      <div className="text-left">
+                        <span className="text-[9px] text-emerald-400/70 block font-mono leading-none">INVENTORY</span>
+                        <span className="text-xs font-black font-display">查看背包</span>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
@@ -3171,8 +3641,11 @@ if (authMode === 'register') {
                                 </div>
                               )}
 
-                              {/* Tiny lock/check indicator badge in corner */}
-                              <div className="absolute bottom-0.5 right-0.5 pointer-events-none">
+                              {/* Tiny lock/check/shield indicator badge in corner */}
+                              <div className="absolute bottom-0.5 right-0.5 pointer-events-none flex items-center gap-0.5">
+                                {plot.pestNetEquipped && (
+                                  <span className="text-[8px] bg-indigo-600 text-white font-black rounded-full px-0.5 leading-none">🛡️</span>
+                                )}
                                 {isUnderAttack ? (
                                   <span className="text-[8px] bg-red-600 text-white font-black rounded-full px-1 leading-none">!</span>
                                 ) : isWithered ? (
@@ -3254,6 +3727,11 @@ if (authMode === 'register') {
                               <span className={`text-[9px] font-black font-mono tracking-wider border px-1.5 py-0.5 rounded leading-none ${levelBadgeColor}`}>
                                 #{plot.id}
                               </span>
+                              {plot.pestNetEquipped && (
+                                <span className="text-[8px] bg-indigo-500/30 text-indigo-300 border border-indigo-400/50 px-1 py-0.5 rounded-full font-bold flex items-center gap-0.5 leading-none">
+                                  🛡️ 防蟲網
+                                </span>
+                              )}
                               {isUnderAttack ? (
                                 <span className="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 leading-none animate-bounce">
                                   ⚠️ 害蟲突襲
@@ -3279,7 +3757,7 @@ if (authMode === 'register') {
 
                             {/* Card Content Row */}
                             <div className="flex items-center gap-2.5 w-full mt-2">
-                              <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
+                              <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 relative ${
                                 isUnderAttack
                                   ? 'bg-red-500/20 text-red-300 ring-2 ring-red-500/40 animate-bounce'
                                   : isWithered
@@ -3290,6 +3768,9 @@ if (authMode === 'register') {
                                   ? 'bg-amber-500/20 text-amber-300 ring-2 ring-amber-400/30'
                                   : 'bg-slate-950 border border-slate-800/80 text-slate-600'
                               }`}>
+                                {plot.pestNetEquipped && (
+                                  <div className="absolute -top-1.5 -left-1.5 text-[10px] bg-indigo-600 rounded-full p-0.5 shadow">🛡️</div>
+                                )}
                                 <span className={`text-2xl ${isWithered ? 'grayscale opacity-75' : ''}`}>
                                   {isUnderAttack ? (attackPest?.icon || '🐛') : isWithered ? '🥀' : hasCrop && cropData ? cropData.icon : isPendingDraw ? '🎁' : '🌱'}
                                 </span>
@@ -3311,15 +3792,29 @@ if (authMode === 'register') {
                                     <span>作物: 未揭曉</span>
                                   )}
                                 </p>
-                                {plot.bestStreak > 0 ? (
-                                  <p className="text-[9px] text-emerald-400/80 font-mono mt-1 font-bold leading-none">
-                                    紀錄: {plot.bestStreak}/10 題
-                                  </p>
-                                ) : (
-                                  <p className="text-[9px] text-slate-600 font-mono mt-1 leading-none">
-                                    尚未挑戰
-                                  </p>
-                                )}
+                                <div className="flex items-center justify-between mt-1">
+                                  {plot.bestStreak > 0 ? (
+                                    <p className="text-[9px] text-emerald-400/80 font-mono font-bold leading-none">
+                                      紀錄: {plot.bestStreak}/10 題
+                                    </p>
+                                  ) : (
+                                    <p className="text-[9px] text-slate-600 font-mono leading-none">
+                                      尚未挑戰
+                                    </p>
+                                  )}
+                                  {hasCrop && !isWithered && !isUnderAttack && !plot.pestNetEquipped && (gameState.pestNets ?? 0) > 0 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEquipPestNet(plot.id);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-300 rounded text-[8px] font-bold transition active:scale-95 z-10 flex items-center gap-0.5 shadow-sm"
+                                      title="消耗 1 個防蟲網裝備於此區"
+                                    >
+                                      <span>🛡️ 裝防蟲網</span>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -3467,6 +3962,13 @@ if (authMode === 'register') {
                   isAnswered={isAnswered}
                   isAnswerCorrect={isAnswerCorrect}
                   showHint={showHint}
+                  hintTickets={gameState.hintTickets ?? 0}
+                  onUseHintTicket={() => {
+                    setGameState(prev => ({
+                      ...prev,
+                      hintTickets: Math.max(0, (prev.hintTickets ?? 0) - 1)
+                    }));
+                  }}
                   onShowHint={() => {
                     playSynthSound('click', isMuted);
                     setShowHint(true);
@@ -4059,7 +4561,17 @@ if (authMode === 'register') {
                     >
                       <span className="flex items-center gap-1.5">🥬 餵高麗菜</span>
                       <span className="text-[10px] bg-green-200/60 px-2 py-0.5 rounded-full font-mono">
-                        消耗 1 / 剩 {gameState.cabbages}
+                        飽食+25 / 剩 {gameState.cabbages}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={handleFeedTortoiseTreat}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition text-xs font-bold shadow-sm"
+                    >
+                      <span className="flex items-center gap-1.5">🍪 餵烏龜點心 (福引限定)</span>
+                      <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                        XP+50 / 剩 {gameState.tortoiseTreats ?? 0}
                       </span>
                     </button>
 
@@ -4069,7 +4581,7 @@ if (authMode === 'register') {
                     >
                       <span className="flex items-center gap-1.5">🪣 餵灌溉聖水</span>
                       <span className="text-[10px] bg-blue-200/60 px-2 py-0.5 rounded-full font-mono">
-                        消耗 1 / 剩 {gameState.waterBuckets}
+                        水分+25 / 剩 {gameState.waterBuckets}
                       </span>
                     </button>
 
@@ -4262,120 +4774,7 @@ if (authMode === 'register') {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: 統計 (STATISTICS VIEW) */}
-        {/* ========================================================= */}
-        {currentTab === 'stats' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Overview dashboard widget grids */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm text-center space-y-1">
-                <span className="text-2xl">🪙</span>
-                <span className="text-[10px] text-gray-400 block font-mono uppercase tracking-wider">Total Credits</span>
-                <span className="text-base font-black text-amber-600 font-display">{gameState.coins} CR</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm text-center space-y-1">
-                <span className="text-2xl">🥬</span>
-                <span className="text-[10px] text-gray-400 block font-mono uppercase tracking-wider">Harvested Bio</span>
-                <span className="text-base font-black text-green-700 font-display">{gameState.cabbages} PKG</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm text-center space-y-1">
-                <span className="text-2xl">🪣</span>
-                <span className="text-[10px] text-gray-400 block font-mono uppercase tracking-wider">Fluid Coolants</span>
-                <span className="text-base font-black text-blue-500 font-display">{gameState.waterBuckets} CELL</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm text-center space-y-1">
-                <span className="text-2xl">🔥</span>
-                <span className="text-[10px] text-gray-400 block font-mono uppercase tracking-wider">SYNC CORES</span>
-                <span className="text-base font-black text-emerald-600 font-display">{irrigatedCount} / {fields.length} Cores</span>
-              </div>
-            </div>
-
-            {/* In-depth details & achievements */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Detailed matrix list */}
-              <div className="md:col-span-7 bg-white border border-green-100 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 className="text-sm font-black text-green-800 border-b border-gray-100 pb-2.5 font-display">
-                  各區良田灌溉進度
-                </h3>
-                
-                <div className="space-y-3 font-sans max-h-96 overflow-y-auto pr-2 scrollbar-thin">
-                  {fields.map(plot => (
-                    <div key={plot.id} className="flex items-center justify-between text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
-                      <div>
-                        <span className="font-bold text-gray-800 block">良田 #{plot.id}</span>
-                        <span className="text-[10px] text-gray-400 font-mono">培育作物: {plot.cropName}</span>
-                      </div>
-                      <div className="text-right">
-                        {plot.isIrrigated ? (
-                          <span className="text-green-600 font-extrabold block">✓ 已灌溉 100%</span>
-                        ) : (
-                          <span className="text-gray-400 block">待解鎖</span>
-                        )}
-                        <span className="text-[10px] text-gray-400 font-mono">最高答對: {plot.bestStreak} / 10 題</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Learning Milestone achievements */}
-              <div className="md:col-span-5 bg-white border border-green-100 rounded-3xl p-6 shadow-sm space-y-4">
-                <h3 className="text-sm font-black text-green-800 border-b border-gray-100 pb-2.5 font-display">
-                  C++ 榮譽徽章與里程碑
-                </h3>
-
-                <div className="space-y-4">
-                  {/* Badge 1 */}
-                  <div className="flex gap-3 items-start">
-                    <span className={`text-2xl p-1.5 rounded-full ${fields[0].isIrrigated ? 'bg-amber-100' : 'bg-gray-100 grayscale opacity-40'}`}>
-                      🌱
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-gray-800 font-display">C++ 新手農夫</h4>
-                      <p className="text-[10px] text-gray-500">成功完成第一塊良田（基礎輸入輸出）的 100% 完美灌溉。</p>
-                    </div>
-                  </div>
-
-                  {/* Badge 2 */}
-                  <div className="flex gap-3 items-start">
-                    <span className={`text-2xl p-1.5 rounded-full ${fields[4].isIrrigated ? 'bg-amber-100' : 'bg-gray-100 grayscale opacity-40'}`}>
-                      🔁
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-gray-800 font-display">迴圈掌控大師</h4>
-                      <p className="text-[10px] text-gray-500">成功完美灌溉重複結構迴圈田，徹底參透 for / while 迴圈原理。</p>
-                    </div>
-                  </div>
-
-                  {/* Badge 3 */}
-                  <div className="flex gap-3 items-start">
-                    <span className={`text-2xl p-1.5 rounded-full ${fields[6].isIrrigated ? 'bg-amber-100' : 'bg-gray-100 grayscale opacity-40'}`}>
-                      🗺
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-gray-800 font-display">指標指路人</h4>
-                      <p className="text-[10px] text-gray-500">成功突破最深奧的第七關（指標與位址田），掌握 C++ 的靈魂！</p>
-                    </div>
-                  </div>
-
-                  {/* Badge 4 */}
-                  <div className="flex gap-3 items-start">
-                    <span className={`text-2xl p-1.5 rounded-full ${irrigatedCount === fields.length ? 'bg-yellow-100 border border-yellow-300' : 'bg-gray-100 grayscale opacity-40'}`}>
-                      👑
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-gray-800 font-display">C++ 語法帝國至尊</h4>
-                      <p className="text-[10px] text-gray-500">完美灌溉全數 {fields.length} 區核心程式田，烏龜智者對你致上最高敬意！</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* TAB 4.5: 成就 (ACHIEVEMENTS VIEW) */}
+        {/* TAB 4: 成就 (ACHIEVEMENTS VIEW) */}
         {/* ========================================================= */}
         {currentTab === 'achievements' && (() => {
           // 既有普通成就清單 (完整保留，絕不破壞)
@@ -4833,126 +5232,400 @@ if (authMode === 'register') {
         })()}
 
         {/* ========================================================= */}
-        {/* TAB 5: 設定 (SETTINGS VIEW) */}
+        {/* TAB 5: 更多 (MORE HUB & SYSTEM MANAGEMENT) */}
         {/* ========================================================= */}
-        {currentTab === 'settings' && (
-          <div className="max-w-xl mx-auto bg-white border border-green-100 rounded-3xl p-6 shadow-sm space-y-6 animate-fade-in font-display">
-            <div>
-              <h2 className="text-lg font-black text-green-800 border-b border-gray-100 pb-2.5">系統設定與重置</h2>
-              <p className="text-xs text-gray-500 mt-1">在這裡管理您的遊戲音效、重新開始或深入了解我們設計這款 C++ 農場的初衷。</p>
-            </div>
-
-            {/* Settings options row */}
-            <div className="space-y-4 font-sans text-xs">
-              
-              {/* Sound Option */}
-              <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-2xl border border-gray-100">
-                <div>
-                  <span className="font-bold text-gray-800 block">遊戲音效系統</span>
-                  <span className="text-[10px] text-gray-400">控制作答音、升級琶音等合成音效開關。</span>
-                </div>
-                <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  className={`px-4 py-2 rounded-full font-bold text-xs font-display border transition-all ${
-                    !isMuted 
-                      ? 'bg-green-100 text-green-700 border-green-300 shadow-sm' 
-                      : 'bg-gray-100 text-gray-500 border-gray-200'
-                  }`}
-                >
-                  {!isMuted ? '✓ 音效已開啟' : '🔇 已靜音'}
-                </button>
-              </div>
-
-              {/* Onboarding Option */}
-              <div className="flex items-center justify-between p-3.5 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                <div>
-                  <span className="font-bold text-indigo-800 block">觀看新手導覽</span>
-                  <span className="text-[10px] text-gray-400">重新播放 step-by-step 互動式新手教學，掌握遊戲核心操作。</span>
-                </div>
-                <button
-                  onClick={() => {
-                    playSynthSound('click', isMuted);
-                    setOpenOnboarding(true);
-                    setOnboardingStep(0);
-                    setCurrentTab('farm');
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full font-bold text-xs font-display shadow-sm transition-colors"
-                >
-                  開始導覽 🚀
-                </button>
-              </div>
-
-              {/* Reset Option */}
-              <div className="flex items-center justify-between p-3.5 bg-red-50/50 rounded-2xl border border-red-100">
-                <div>
-                  <span className="font-bold text-red-800 block">重置所有核心系統</span>
-                  <span className="text-[10px] text-gray-400">這將完全清空您的 3x3 灌溉進度、烏龜等級，並重新開始。</span>
-                </div>
-                <button
-                  onClick={handleResetGame}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full font-bold text-xs font-display shadow-sm transition-colors"
-                >
-                  開始重設
-                </button>
-              </div>
-
-              {/* Weekly Pest Invasion Dev / Test Section */}
-              <div className="p-4 bg-emerald-950/20 rounded-2xl border border-emerald-500/20 space-y-3">
-                <div className="flex items-center justify-between">
+        {(currentTab === 'more' || currentTab === 'stats' || currentTab === 'settings') && (
+          <div className="space-y-6 animate-fade-in font-display">
+            {/* Header banner for More page */}
+            <div className="cyber-card border border-emerald-500/30 rounded-3xl p-5 sm:p-6 relative overflow-hidden bg-gradient-to-br from-slate-900/95 via-[#0c1b18]/95 to-slate-950/95">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl text-emerald-300 shadow-inner shrink-0">
+                    ⋯
+                  </div>
                   <div>
-                    <span className="font-bold text-emerald-900 block flex items-center gap-1.5">
-                      <span>🐛</span> 每週害蟲入侵事件 (Asia/Taipei 每週六 19:30)
-                    </span>
-                    <span className="text-[10px] text-gray-500">
-                      當前週次：<code>{gameState.weeklyPest?.weekKey || getTaiwanPestWeekKey()}</code> | 狀態：
-                      <strong className="text-emerald-700 ml-1">
-                        {gameState.weeklyPest?.status === 'pending' ? '⚠️ 入侵防衛中' : gameState.weeklyPest?.status === 'repelled' ? '🛡️ 已成功驅逐' : gameState.weeklyPest?.status === 'withered' ? '🥀 作物枯萎待復育' : gameState.weeklyPest?.status === 'recovered' ? '🌱 已復育救回' : '等待每週入侵'}
-                      </strong>
-                    </span>
+                    <h2 className="text-lg font-black text-white font-display flex items-center gap-2">
+                      更多系統與設定 <span className="text-xs text-emerald-400 font-mono font-normal">MORE HUB</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      管理玩家學籍、檢視學習數據統計、每日任務回顧與系統參數調校。
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playSynthSound('click', isMuted);
-                      handleDevTriggerPest();
-                    }}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                  >
-                    ⚡ 立即觸發害蟲突襲測試
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playSynthSound('click', isMuted);
-                      handleDevResetPest();
-                    }}
-                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl text-xs font-bold transition cursor-pointer"
-                  >
-                    🔄 重設本週害蟲事件
-                  </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-mono">
+                    系統版本 v2.5.0
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 1. 👤 玩家學籍與雲端存檔 */}
+            <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 sm:p-6 space-y-4">
+              <h3 className="text-sm font-black text-emerald-400 font-display flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span>👤</span> 玩家學籍與雲端存檔
+              </h3>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
+                    {currentUser?.authType === 'google' ? '🌐' : '🧑‍🌾'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-white font-display">
+                        {currentUser?.username || '訪客農夫'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {currentUser?.authType === 'google' ? 'Google 連線帳號' : currentUser?.authType === 'password' ? '密碼帳號' : '訪客農夫'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                      UID: {currentUser?.uid ? `${currentUser.uid.slice(0, 16)}...` : '本機臨時工作區'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  {currentUser ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          playSynthSound('click', isMuted);
+                          setNewNicknameInput(currentUser.username);
+                          setIsNicknameModalOpen(true);
+                        }}
+                        className="flex-1 sm:flex-none px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>修改暱稱</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          playSynthSound('click', isMuted);
+                          handleLogout();
+                        }}
+                        className="flex-1 sm:flex-none px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>登出帳號</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        playSynthSound('click', isMuted);
+                        setAuthMethodTab('quick');
+                        setCustomNickname(generateRandomNickname());
+                        setAuthError(null);
+                        setAuthSuccess(null);
+                        setIsAuthModalOpen(true);
+                      }}
+                      className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      <span>登入 / 建立暱稱帳號</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 2. 📊 學習數據與良田統計 */}
+            <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 sm:p-6 space-y-5">
+              <h3 className="text-sm font-black text-emerald-400 font-display flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span>📊</span> 學習數據與良田統計
+              </h3>
+
+              {/* 4 Summary Stat Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
+                  <span className="text-2xl block">🪙</span>
+                  <span className="text-[10px] text-amber-500/70 block font-mono uppercase tracking-wider">Total Credits</span>
+                  <span className="text-sm sm:text-base font-black text-amber-400 font-display">{gameState.coins} CR</span>
+                </div>
+                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
+                  <span className="text-2xl block">🥬</span>
+                  <span className="text-[10px] text-emerald-500/70 block font-mono uppercase tracking-wider">Harvested Bio</span>
+                  <span className="text-sm sm:text-base font-black text-emerald-400 font-display">{gameState.cabbages} PKG</span>
+                </div>
+                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
+                  <span className="text-2xl block">🪣</span>
+                  <span className="text-[10px] text-blue-400/70 block font-mono uppercase tracking-wider">Fluid Coolants</span>
+                  <span className="text-sm sm:text-base font-black text-blue-400 font-display">{gameState.waterBuckets} CELL</span>
+                </div>
+                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
+                  <span className="text-2xl block">🔥</span>
+                  <span className="text-[10px] text-emerald-400/70 block font-mono uppercase tracking-wider">Sync Cores</span>
+                  <span className="text-sm sm:text-base font-black text-emerald-400 font-display">{irrigatedCount} / {fields.length} Cores</span>
                 </div>
               </div>
 
-              {/* Manual section */}
-              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
-                <h4 className="font-bold text-amber-900 text-xs font-display">💡 完美通關秘笈與心法：</h4>
-                <ul className="list-disc list-inside space-y-1.5 text-amber-800 text-[11px] leading-relaxed">
-                  <li><strong>不要怕失敗：</strong>10 題需要一口氣全部答對，中途不小心編譯錯誤沒關係，隨時可以重新發射探針同步！</li>
-                  <li><strong>善用「字庫」預習：</strong>我們為您準備了「字庫」分頁，裡面有全關卡 90+ 題型的標準語法答案與解說，先去字庫預習，答題通關更輕鬆！</li>
-                  <li><strong>巡視溫室烏龜：</strong>烏龜肚子餓或水分值太低，將無法執行 C++ 高階腦力特訓，記得常用灌溉得來的白菜和聖水餵飽牠。</li>
-                </ul>
+              {/* Detailed Plot Matrix & Milestone Badges */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                {/* Detailed matrix list */}
+                <div className="md:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <h4 className="text-xs font-black text-emerald-300 font-display">
+                      各區良田灌溉進度
+                    </h4>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      共 {fields.length} 區
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 font-sans max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+                    {fields.map(plot => (
+                      <div key={plot.id} className="flex items-center justify-between text-xs bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                        <div>
+                          <span className="font-bold text-slate-200 block">第 {plot.id} 區・{plot.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">作物: {plot.cropName}</span>
+                        </div>
+                        <div className="text-right">
+                          {plot.isIrrigated ? (
+                            <span className="text-emerald-400 font-extrabold block text-xs">✓ 已灌溉 100%</span>
+                          ) : (
+                            <span className="text-slate-500 block text-xs">待灌溉</span>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-mono">最高: {plot.bestStreak} / 10 題</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Learning Milestone achievements */}
+                <div className="md:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <h4 className="text-xs font-black text-emerald-300 font-display border-b border-slate-800/80 pb-2">
+                    C++ 榮譽徽章與里程碑
+                  </h4>
+
+                  <div className="space-y-3">
+                    {/* Badge 1 */}
+                    <div className="flex gap-3 items-start bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/50">
+                      <span className={`text-xl p-1.5 rounded-xl ${fields[0]?.isIrrigated ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-800 grayscale opacity-40'}`}>
+                        🌱
+                      </span>
+                      <div>
+                        <h5 className="text-xs font-black text-slate-200 font-display">C++ 新手農夫</h5>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">成功完成第一塊良田（基礎輸入輸出）的 100% 完美灌溉。</p>
+                      </div>
+                    </div>
+
+                    {/* Badge 2 */}
+                    <div className="flex gap-3 items-start bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/50">
+                      <span className={`text-xl p-1.5 rounded-xl ${fields[4]?.isIrrigated ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-800 grayscale opacity-40'}`}>
+                        🔁
+                      </span>
+                      <div>
+                        <h5 className="text-xs font-black text-slate-200 font-display">迴圈掌控大師</h5>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">成功完美灌溉重複結構迴圈田，徹底參透 for / while 迴圈原理。</p>
+                      </div>
+                    </div>
+
+                    {/* Badge 3 */}
+                    <div className="flex gap-3 items-start bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/50">
+                      <span className={`text-xl p-1.5 rounded-xl ${fields[6]?.isIrrigated ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-800 grayscale opacity-40'}`}>
+                        🗺
+                      </span>
+                      <div>
+                        <h5 className="text-xs font-black text-slate-200 font-display">指標指路人</h5>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">成功突破最深奧的第七關（指標與位址田），掌握 C++ 的靈魂！</p>
+                      </div>
+                    </div>
+
+                    {/* Badge 4 */}
+                    <div className="flex gap-3 items-start bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/50">
+                      <span className={`text-xl p-1.5 rounded-xl ${irrigatedCount === fields.length ? 'bg-yellow-500/20 border border-yellow-400/50 text-yellow-300' : 'bg-slate-800 grayscale opacity-40'}`}>
+                        👑
+                      </span>
+                      <div>
+                        <h5 className="text-xs font-black text-slate-200 font-display">C++ 語法帝國至尊</h5>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">完美灌溉全數 {fields.length} 區核心程式田，烏龜智者對你致上最高敬意！</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* 3. 📅 每日任務與日常歷練 */}
+            <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 sm:p-6 space-y-4">
+              <h3 className="text-sm font-black text-emerald-400 font-display flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span>📅</span> 每日任務與日常歷練
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Daily Quest launcher */}
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xl text-emerald-300 shrink-0">
+                      📋
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white font-display">每日農莊任務</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5">完成每日日常目標獲取豐厚資源</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsDailyQuestOpen(true);
+                    }}
+                    className="relative px-3.5 py-2 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>開啟任務</span>
+                    {hasUnclaimedQuests && (
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Daily Challenge launcher */}
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xl text-amber-300 shrink-0">
+                      🏆
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white font-display">今日限定 C++ 挑戰</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {isDailyChallengeCompletedToday ? '今日已完成 (連勝維持中)' : '每日 1 題限定語法挑戰'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setIsDailyChallengeOpen(true);
+                    }}
+                    className="px-3.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>{isDailyChallengeCompletedToday ? '查看紀錄' : '前往挑戰'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. ⚙️ 系統設定與管理 */}
+            <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 sm:p-6 space-y-4">
+              <h3 className="text-sm font-black text-emerald-400 font-display flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span>⚙️</span> 系統設定與管理
+              </h3>
+
+              <div className="space-y-3 font-sans text-xs">
+                {/* Sound Option */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+                  <div>
+                    <span className="font-bold text-slate-200 block">遊戲音效系統</span>
+                    <span className="text-[10px] text-slate-400">控制作答音、升級琶音等合成音效開關。</span>
+                  </div>
+                  <button
+                    onClick={() => setIsMuted(!isMuted)}
+                    className={`px-4 py-2 rounded-xl font-bold text-xs font-display border transition-all cursor-pointer ${
+                      !isMuted 
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm' 
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {!isMuted ? '✓ 音效已開啟' : '🔇 已靜音'}
+                  </button>
+                </div>
+
+                {/* Onboarding Option */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800">
+                  <div>
+                    <span className="font-bold text-slate-200 block">觀看新手導覽</span>
+                    <span className="text-[10px] text-slate-400">重新播放 step-by-step 互動式新手教學，掌握遊戲核心操作。</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      playSynthSound('click', isMuted);
+                      setOpenOnboarding(true);
+                      setOnboardingStep(0);
+                      setCurrentTab('farm');
+                    }}
+                    className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 px-4 py-2 rounded-xl font-bold text-xs font-display transition-colors cursor-pointer"
+                  >
+                    開始導覽 🚀
+                  </button>
+                </div>
+
+                {/* Reset Option */}
+                <div className="flex items-center justify-between p-3.5 bg-rose-950/20 rounded-2xl border border-rose-500/20">
+                  <div>
+                    <span className="font-bold text-rose-300 block">重置所有核心系統</span>
+                    <span className="text-[10px] text-rose-400/70">這將完全清空您的灌溉進度、烏龜等級，並重新開始。</span>
+                  </div>
+                  <button
+                    onClick={handleResetGame}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl font-bold text-xs font-display shadow-sm transition-colors cursor-pointer"
+                  >
+                    開始重設
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 5. 🐛 每週害蟲突襲與防衛測試 */}
+            <div className="cyber-card border border-emerald-500/20 rounded-3xl p-5 sm:p-6 space-y-3">
+              <h3 className="text-sm font-black text-emerald-400 font-display flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span>🐛</span> 每週害蟲入侵事件 (Asia/Taipei 每週六 19:30)
+              </h3>
+
+              <div className="p-3 bg-slate-900/60 rounded-2xl border border-slate-800 text-xs">
+                <span className="text-slate-400">
+                  當前週次：<code className="text-emerald-400 font-mono">{gameState.weeklyPest?.weekKey || getTaiwanPestWeekKey()}</code> | 狀態：
+                  <strong className="text-emerald-300 ml-1">
+                    {gameState.weeklyPest?.status === 'pending' ? '⚠️ 入侵防衛中' : gameState.weeklyPest?.status === 'repelled' ? '🛡️ 已成功驅逐' : gameState.weeklyPest?.status === 'withered' ? '🥀 作物枯萎待復育' : gameState.weeklyPest?.status === 'recovered' ? '🌱 已復育救回' : '等待每週入侵'}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSynthSound('click', isMuted);
+                    handleDevTriggerPest();
+                  }}
+                  className="px-3.5 py-2 bg-red-600/30 hover:bg-red-600/50 text-red-200 border border-red-500/40 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                >
+                  ⚡ 立即觸發害蟲突襲測試
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSynthSound('click', isMuted);
+                    handleDevResetPest();
+                  }}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  🔄 重設本週害蟲事件
+                </button>
+              </div>
+            </div>
+
+            {/* 6. 💡 完美通關秘笈與心法 */}
+            <div className="cyber-card border border-amber-500/30 rounded-3xl p-5 sm:p-6 space-y-3 bg-gradient-to-br from-slate-900 to-[#1f1a0e]/60">
+              <h4 className="font-bold text-amber-300 text-xs font-display flex items-center gap-1.5">
+                <span>💡</span> 完美通關秘笈與心法：
+              </h4>
+              <ul className="list-disc list-inside space-y-1.5 text-slate-300 text-xs leading-relaxed font-sans">
+                <li><strong>不要怕失敗：</strong>10 題需要一口氣全部答對，中途不小心編譯錯誤沒關係，隨時可以重新發射探針同步！</li>
+                <li><strong>善用「字庫」預習：</strong>我們為您準備了「字庫」分頁，裡面有全關卡 1500+ 題型的標準語法答案與解說，先去字庫預習，答題通關更輕鬆！</li>
+                <li><strong>巡視溫室烏龜：</strong>烏龜肚子餓或水分值太低，將無法執行 C++ 高階腦力特訓，記得常用灌溉得來的高麗菜和聖水餵飽牠。</li>
+              </ul>
+            </div>
+
           </div>
         )}
 
       </main>
 
       {/* ========================================================= */}
-      {/* 5. GORGEOUS STICKY BOTTOM NAVIGATION BAR */}
+      {/* 5. GORGEOUS STICKY BOTTOM NAVIGATION BAR (5 FIXED ITEMS) */}
       {/* ========================================================= */}
       <footer className="fixed bottom-0 left-0 right-0 bg-slate-950/95 border-t border-emerald-500/20 shadow-[0_-8px_32px_rgba(0,0,0,0.8)] backdrop-blur-md z-50 py-3.5 px-6">
         <div className="max-w-xl mx-auto flex items-center justify-between relative gap-2">
@@ -4965,7 +5638,7 @@ if (authMode === 'register') {
               setActiveFieldId(null);
               setCurrentTab('farm');
             }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
+            className="flex flex-col items-center gap-1 group relative focus:outline-none cursor-pointer"
           >
             <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
               currentTab === 'farm' 
@@ -4989,7 +5662,7 @@ if (authMode === 'register') {
               setActiveFieldId(null);
               setCurrentTab('cards');
             }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
+            className="flex flex-col items-center gap-1 group relative focus:outline-none cursor-pointer"
           >
             <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
               currentTab === 'cards' 
@@ -5013,7 +5686,7 @@ if (authMode === 'register') {
               setActiveFieldId(null);
               setCurrentTab('pet');
             }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
+            className="flex flex-col items-center gap-1 group relative focus:outline-none cursor-pointer"
           >
             <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
               currentTab === 'pet' 
@@ -5029,31 +5702,7 @@ if (authMode === 'register') {
             </span>
           </button>
 
-          {/* Circular Menu button 4: 統計 */}
-          <button
-            id="tab-button-stats"
-            onClick={() => {
-              playSynthSound('click', isMuted);
-              setActiveFieldId(null);
-              setCurrentTab('stats');
-            }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
-          >
-            <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
-              currentTab === 'stats' 
-                ? 'bg-emerald-400 text-slate-950 border border-emerald-300 scale-110 -translate-y-2.5 shadow-lg shadow-emerald-500/30' 
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800/80'
-            }`}>
-              <BarChart2 className="w-5 h-5" />
-            </div>
-            <span className={`text-[10px] font-black tracking-wide font-display ${
-              currentTab === 'stats' ? 'text-emerald-400 scale-105' : 'text-slate-500'
-            }`}>
-              統計
-            </span>
-          </button>
-
-          {/* Circular Menu button 4.5: 成就 */}
+          {/* Circular Menu button 4: 成就 */}
           <button
             id="tab-button-achievements"
             onClick={() => {
@@ -5061,7 +5710,7 @@ if (authMode === 'register') {
               setActiveFieldId(null);
               setCurrentTab('achievements');
             }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
+            className="flex flex-col items-center gap-1 group relative focus:outline-none cursor-pointer"
           >
             <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
               currentTab === 'achievements' 
@@ -5077,27 +5726,27 @@ if (authMode === 'register') {
             </span>
           </button>
 
-          {/* Circular Menu button 5: 設定 */}
+          {/* Circular Menu button 5: 更多 */}
           <button
-            id="tab-button-settings"
+            id="tab-button-more"
             onClick={() => {
               playSynthSound('click', isMuted);
               setActiveFieldId(null);
-              setCurrentTab('settings');
+              setCurrentTab('more');
             }}
-            className="flex flex-col items-center gap-1 group relative focus:outline-none"
+            className="flex flex-col items-center gap-1 group relative focus:outline-none cursor-pointer"
           >
             <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
-              currentTab === 'settings' 
+              (currentTab === 'more' || currentTab === 'stats' || currentTab === 'settings')
                 ? 'bg-emerald-400 text-slate-950 border border-emerald-300 scale-110 -translate-y-2.5 shadow-lg shadow-emerald-500/30' 
                 : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800/80'
             }`}>
-              <Settings className="w-5 h-5" />
+              <MoreHorizontal className="w-5 h-5" />
             </div>
             <span className={`text-[10px] font-black tracking-wide font-display ${
-              currentTab === 'settings' ? 'text-emerald-400 scale-105' : 'text-slate-500'
+              (currentTab === 'more' || currentTab === 'stats' || currentTab === 'settings') ? 'text-emerald-400 scale-105' : 'text-slate-500'
             }`}>
-              設定
+              更多
             </span>
           </button>
 
@@ -5883,6 +6532,16 @@ if (authMode === 'register') {
         pestEvent={gameState.weeklyPest || null}
         fields={fields}
         question={currentPestChallengeQuestion}
+        pesticides={gameState.pesticides ?? 0}
+        onPestNetTriggered={(fieldId) => {
+          setFields(prev => prev.map(f => f.id === fieldId ? { ...f, pestNetEquipped: false } : f));
+        }}
+        onUsePesticide={() => {
+          setGameState(prev => ({
+            ...prev,
+            pesticides: Math.max(0, (prev.pesticides ?? 0) - 1)
+          }));
+        }}
         onClose={() => setIsPestDefenseOpen(false)}
         onDefenseSuccess={handlePestDefenseSuccess}
         onDefenseFailure={handlePestDefenseFailure}
@@ -5898,6 +6557,13 @@ if (authMode === 'register') {
         field={fields.find(f => f.id === (pestRecoveryFieldId || gameState.weeklyPest?.fieldId)) || null}
         pestEvent={gameState.weeklyPest || null}
         questions={currentPestRecoveryQuestions}
+        recoveryFertilizers={gameState.recoveryFertilizers ?? 0}
+        onUseRecoveryFertilizer={() => {
+          setGameState(prev => ({
+            ...prev,
+            recoveryFertilizers: Math.max(0, (prev.recoveryFertilizers ?? 0) - 1)
+          }));
+        }}
         onClose={() => {
           setIsPestRecoveryOpen(false);
           setPestRecoveryFieldId(null);
@@ -5906,6 +6572,59 @@ if (authMode === 'register') {
         onProgressUpdate={handlePestRecoveryProgressUpdate}
         playSynthSound={playSynthSound}
         isMuted={isMuted}
+      />
+
+      {/* ========================================================= */}
+      {/* 16. 🌾 豐收福引所 (HARVEST FUKUBIKI) 抽獎系統 MODAL */}
+      {/* ========================================================= */}
+      <HarvestFukubikiModal
+        isOpen={isHarvestFukubikiOpen}
+        gameState={gameState}
+        onClose={() => setIsHarvestFukubikiOpen(false)}
+        onDraw={handleExecuteLotteryDraw}
+        onAddTestTicket={handleAddTestLotteryTicket}
+        isMuted={isMuted}
+        playSynthSound={playSynthSound}
+      />
+
+      {/* ========================================================= */}
+      {/* 17. 🎒 農場道具背包 MODAL */}
+      {/* ========================================================= */}
+      <InventoryModal
+        isOpen={isInventoryOpen}
+        onClose={() => setIsInventoryOpen(false)}
+        gameState={gameState}
+        tortoise={tortoise}
+        onFeedTortoiseTreat={handleFeedTortoiseTreat}
+        onFeedTortoiseCabbage={handleFeedTortoise}
+        onWaterTortoise={handleWaterTortoise}
+        onOpenLottery={() => {
+          setIsInventoryOpen(false);
+          setIsHarvestFukubikiOpen(true);
+        }}
+        onOpenShop={() => {
+          setIsInventoryOpen(false);
+          setIsShopOpen(true);
+        }}
+        isMuted={isMuted}
+        playSynthSound={playSynthSound}
+      />
+
+      {/* ========================================================= */}
+      {/* 18. 🏪 農場商店 (FARM SHOP) MODAL */}
+      {/* ========================================================= */}
+      <ShopModal
+        isOpen={isShopOpen}
+        onClose={() => setIsShopOpen(false)}
+        gameState={gameState}
+        onPurchase={handleExecuteShopPurchase}
+        onOpenInventory={() => {
+          setIsShopOpen(false);
+          setIsInventoryOpen(true);
+        }}
+        onAddTestCurrency={handleAddTestCurrency}
+        isMuted={isMuted}
+        playSynthSound={playSynthSound}
       />
 
     </div>

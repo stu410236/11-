@@ -20,7 +20,7 @@ interface DailyChallengeModalProps {
     questionIndex: number;
   };
   dailyChallengeState?: DailyChallengeState;
-  onCompleteChallenge: (questionId: string) => void;
+  onCompleteChallenge: (questionId: string, isFirstAttempt?: boolean) => void;
   playSynthSound: (type: 'correct' | 'wrong' | 'click' | 'levelUp', isMuted: boolean) => void;
   isMuted: boolean;
 }
@@ -38,6 +38,7 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
   const [answerInput, setAnswerInput] = useState<string>('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [attemptCount, setAttemptCount] = useState<number>(0);
 
   const { question, chapterInfo } = dailyChallengeQuestion;
   const isCompletedToday = dailyChallengeState?.lastCompletedDate === todayDateKey;
@@ -47,6 +48,7 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
   // 當打開 Modal 時重設狀態
   useEffect(() => {
     if (isOpen) {
+      setAttemptCount(0);
       setAnswerInput(isCompletedToday ? question.expectedAnswer : '');
       if (isCompletedToday) {
         setFeedback({
@@ -74,16 +76,22 @@ export const DailyChallengeModal: React.FC<DailyChallengeModalProps> = ({
     }
 
     setIsSubmitting(true);
+    const newAttempt = attemptCount + 1;
+    setAttemptCount(newAttempt);
+
     const isCorrect = verifyDailyChallengeAnswer(answerInput, question);
 
     if (isCorrect) {
       playSynthSound('correct', isMuted);
       playSynthSound('levelUp', isMuted);
+      const isFirstAttempt = (newAttempt === 1);
       setFeedback({
         type: 'success',
-        message: '🎉 DAILY CHALLENGE COMPLETE! 今日限定挑戰完成！'
+        message: isFirstAttempt
+          ? '🎉 一擊即中！今日限定挑戰首次提交即完全正確！獲得每日獎勵與【🎟️ 福引券 ×1】！'
+          : '🎉 DAILY CHALLENGE COMPLETE! 今日限定挑戰完成！'
       });
-      onCompleteChallenge(question.id);
+      onCompleteChallenge(question.id, isFirstAttempt);
     } else {
       playSynthSound('wrong', isMuted);
       setFeedback({

@@ -36,10 +36,11 @@ export interface FieldPlot {
   cropId?: string | null;
   cropDrawPending?: boolean;
   cropDrawnAt?: string | null;
-  // 每週害蟲入侵狀態欄位 (向後相容)
+  // 每週害蟲入侵與農田防禦狀態欄位 (向後相容)
   cropStatus?: 'healthy' | 'withered';
   witheredAt?: string | null;
   witheredByPestWeek?: string | null;
+  pestNetEquipped?: boolean;
 }
 
 export interface TortoisePet {
@@ -109,6 +110,115 @@ export interface GameState {
   totalPestsRepelled?: number;
   totalCropsRecovered?: number;
   pestDefenseWinStreak?: number;
+
+  // 🌾 豐收福引所 (HARVEST FUKUBIKI) 系統
+  lotteryTickets?: number;
+  diamonds?: number;
+  hintTickets?: number;
+  pesticides?: number;
+  pestNets?: number;
+  recoveryFertilizers?: number;
+  tortoiseTreats?: number;
+  plantMilestoneTicketsGranted?: number;
+  dailyPerfectTicketGrantedDate?: string;
+  lotteryStats?: LotteryStats;
+  lotteryHistory?: LotteryHistoryRecord[];
+  lotterySystemStartedAt?: string;
+
+  // 🏪 農場商店 (FARM SHOP) 系統
+  shopHistory?: ShopHistoryRecord[];
+  shopStats?: ShopStats;
+}
+
+export type ShopCurrency = 'coins' | 'diamonds';
+export type ShopCategory = 'all' | 'learning' | 'farming' | 'pet' | 'battle';
+
+export interface ShopItem {
+  id: string;
+  itemId: 'hintTickets' | 'tortoiseTreats' | 'cabbages' | 'waterBuckets' | 'pesticides' | 'pestNets' | 'recoveryFertilizers';
+  name: string;
+  description: string;
+  icon: string;
+  currency: ShopCurrency;
+  price: number;
+  amount: number;
+  category: 'learning' | 'farming' | 'pet' | 'battle';
+  sortOrder: number;
+  itemType?: 'consumable' | 'cosmetic';
+  usageDetail?: string;
+}
+
+export interface ShopHistoryRecord {
+  id: string;
+  shopItemId: string;
+  itemId: string;
+  name: string;
+  amount: number;
+  currency: ShopCurrency;
+  price: number;
+  purchasedAt: string;
+}
+
+export interface ShopStats {
+  totalPurchases: number;
+  totalCoinsSpent: number;
+  totalDiamondsSpent: number;
+}
+
+export type LotteryTierId = 'special' | 'first' | 'second' | 'third';
+
+export type LotteryItemType = 
+  | 'coins' 
+  | 'diamonds' 
+  | 'hintTickets' 
+  | 'pesticides' 
+  | 'pestNets' 
+  | 'recoveryFertilizers' 
+  | 'tortoiseTreats' 
+  | 'water' 
+  | 'cabbage';
+
+export interface LotteryRewardItem {
+  type: LotteryItemType;
+  amount: number;
+}
+
+export interface LotteryTier {
+  id: LotteryTierId;
+  name: string;
+  probability: number;
+  emoji: string;
+  color: string;
+  gradient: string;
+  badgeBg: string;
+  ballColor: string;
+  description: string;
+}
+
+export interface LotteryPrizeBundle {
+  id: string;
+  tier: LotteryTierId;
+  title: string;
+  items: LotteryRewardItem[];
+  weight?: number;
+}
+
+export interface LotteryHistoryRecord {
+  id: string;
+  tier: LotteryTierId;
+  prizeId: string;
+  prizeTitle: string;
+  itemsSummary: string;
+  drawnAt: string;
+}
+
+export interface LotteryStats {
+  totalDraws: number;
+  specialWins: number;
+  firstWins: number;
+  secondWins: number;
+  thirdWins: number;
 }
 
 export type { WeeklyPestEvent, PestInfo, PestHistoryRecord } from './data/pests';
+

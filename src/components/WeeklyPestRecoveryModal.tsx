@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CPlusPlusCard, FieldPlot } from '../types';
 import { getCropById, RARITY_CONFIG } from '../data/crops';
 import { WeeklyPestEvent } from '../data/pests';
+import { Sparkles, Sprout } from 'lucide-react';
 
 interface WeeklyPestRecoveryModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface WeeklyPestRecoveryModalProps {
   questions?: CPlusPlusCard[];
   initialProgress?: number; // 0 to 5
   isMuted?: boolean;
+  recoveryFertilizers?: number;
+  onUseRecoveryFertilizer?: () => void;
   onProgressUpdate?: (newProgress: number) => void;
   onRecoveryComplete: () => void;
   playSynthSound?: (type: 'click' | 'correct' | 'wrong' | 'levelUp' | 'irrigate', muted: boolean) => void;
@@ -30,6 +33,8 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
   questions,
   initialProgress,
   isMuted = false,
+  recoveryFertilizers = 0,
+  onUseRecoveryFertilizer,
   onProgressUpdate,
   onRecoveryComplete,
   playSynthSound,
@@ -38,7 +43,12 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
   const activeQuestions = recoveryQuestions || questions || [];
   const startProgress = initialProgress ?? pestEvent?.recoveryProgress ?? weeklyPest?.recoveryProgress ?? 0;
 
-  const [currentStep, setCurrentStep] = useState(Math.min(4, Math.max(0, startProgress)));
+  const [hasUsedFertilizer, setHasUsedFertilizer] = useState(false);
+  const [isFertilizerProcessing, setIsFertilizerProcessing] = useState(false);
+  const [fertilizerNotice, setFertilizerNotice] = useState<string | null>(null);
+
+  const totalRequiredQuestions = hasUsedFertilizer ? 3 : 5;
+  const [currentStep, setCurrentStep] = useState(Math.min(totalRequiredQuestions - 1, Math.max(0, startProgress)));
   const [typedAnswer, setTypedAnswer] = useState('');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showHint, setShowHint] = useState(false);
@@ -50,6 +60,29 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
   const currentQ = activeQuestions[currentStep] || activeQuestions[0];
   const crop = activeTargetField.cropId ? getCropById(activeTargetField.cropId) : null;
   const rarityMeta = crop ? RARITY_CONFIG[crop.rarity] : null;
+
+  // 使用復甦肥料處理
+  const handleApplyFertilizer = () => {
+    if (isFertilizerProcessing || recoveryFertilizers <= 0 || hasUsedFertilizer) return;
+    setIsFertilizerProcessing(true);
+
+    if (onUseRecoveryFertilizer) {
+      onUseRecoveryFertilizer();
+    }
+    setHasUsedFertilizer(true);
+    setFertilizerNotice('🌱 復甦肥料已注入！土壤肥力大增，復育題數已由 5 題減少為 3 題！');
+    if (playSynthSound) playSynthSound('levelUp', isMuted);
+    
+    // 如果目前已達到 3 題以上，直接判定完成
+    if (currentStep >= 3) {
+      setIsCompleted(true);
+      if (playSynthSound) playSynthSound('irrigate', isMuted);
+      setTimeout(() => {
+        onRecoveryComplete();
+      }, 1600);
+    }
+    setIsFertilizerProcessing(false);
+  };
 
   const checkAnswer = (): boolean => {
     if (currentQ.type === 'code_reading' && currentQ.correctOption !== undefined) {
@@ -89,7 +122,7 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
       const nextStep = currentStep + 1;
       if (onProgressUpdate) onProgressUpdate(nextStep);
 
-      if (nextStep >= 5) {
+      if (nextStep >= totalRequiredQuestions) {
         setIsCompleted(true);
         if (playSynthSound) playSynthSound('irrigate', isMuted);
         setTimeout(() => {
@@ -146,13 +179,18 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
         <div className="px-6 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-300 font-mono">
-              復育進度：<strong className="text-emerald-400">{currentStep}</strong> / 5 題
+              復育進度：<strong className="text-emerald-400">{currentStep}</strong> / {totalRequiredQuestions} 題
             </span>
+            {hasUsedFertilizer && (
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full font-bold">
+                🌱 肥料加持 (門檻 3 題)
+              </span>
+            )}
           </div>
           <div className="flex-1 max-w-xs h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/80">
             <div 
               className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all duration-500 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"
-              style={{ width: `${(currentStep / 5) * 100}%` }}
+              style={{ width: `${Math.min(100, (currentStep / totalRequiredQuestions) * 100)}%` }}
             />
           </div>
         </div>
@@ -160,6 +198,45 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
         {/* Modal Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-slate-200">
           
+          {/* Recovery Fertilizer Usage Banner (If available and not used yet) */}
+          {!hasUsedFertilizer && recoveryFertilizers > 0 && !isCompleted && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-teal-950/60 to-emerald-950/80 border border-emerald-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(16,185,129,0.15)] animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-2xl shrink-0">
+                  🌱
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-emerald-300">使用復甦肥料</span>
+                    <span className="text-[10px] text-amber-300 font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded border border-amber-500/30">
+                      持有：🌱 ×{recoveryFertilizers}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    消耗 1 個復甦肥料，本次復育需要的題目：<strong className="text-emerald-400 font-mono">5 題 → 3 題</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isFertilizerProcessing}
+                onClick={handleApplyFertilizer}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow transition active:scale-95 disabled:opacity-50 shrink-0"
+              >
+                {isFertilizerProcessing ? '使用中...' : '🌱 使用肥料 (5題➔3題)'}
+              </button>
+            </div>
+          )}
+
+          {/* Fertilizer Notice */}
+          {fertilizerNotice && (
+            <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-400/60 text-xs text-emerald-200 flex items-center gap-2 animate-fadeIn">
+              <Sprout className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{fertilizerNotice}</span>
+            </div>
+          )}
+
           {/* Crop Info Card */}
           <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
             <div className="text-4xl p-2 bg-slate-950 rounded-2xl border border-slate-800 shrink-0 opacity-70">
@@ -178,7 +255,7 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1 leading-snug">
-                完成 5 道 C++ 核心複習題後，原本的<strong>【{crop?.name || activeTargetField.cropName}】</strong>將完全恢復生機（保留原本稀有度）！
+                完成 {totalRequiredQuestions} 道 C++ 核心複習題後，原本的<strong>【{crop?.name || activeTargetField.cropName}】</strong>將完全恢復生機（保留原本稀有度）！
               </p>
             </div>
           </div>
@@ -188,7 +265,7 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 text-xs font-black bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-lg font-mono">
-                  複習第 {currentStep + 1} 題
+                  複習第 {currentStep + 1} 題 / 共 {totalRequiredQuestions} 題
                 </span>
                 <h4 className="text-sm sm:text-base font-bold text-white">
                   {currentQ.title}
@@ -296,7 +373,7 @@ export const WeeklyPestRecoveryModal: React.FC<WeeklyPestRecoveryModalProps> = (
             </div>
           )}
 
-          {/* All 5 Done Celebration */}
+          {/* All Done Celebration */}
           {isCompleted && (
             <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 to-teal-950/90 border-2 border-emerald-400 text-emerald-200 flex items-center gap-3 animate-bounce">
               <span className="text-4xl">🌱✨</span>

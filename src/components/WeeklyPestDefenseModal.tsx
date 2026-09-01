@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CPlusPlusCard, FieldPlot } from '../types';
 import { PESTS, WeeklyPestEvent } from '../data/pests';
 import { getCropById, RARITY_CONFIG } from '../data/crops';
+import { Shield, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface WeeklyPestDefenseModalProps {
   isOpen: boolean;
@@ -13,8 +14,11 @@ interface WeeklyPestDefenseModalProps {
   challengeQuestion?: CPlusPlusCard | null;
   question?: CPlusPlusCard | null;
   isMuted?: boolean;
+  pesticides?: number;
   onDefenseSuccess: () => void;
   onDefenseFailure: () => void;
+  onPestNetTriggered?: (fieldId: number) => void;
+  onUsePesticide?: () => void;
   playSynthSound?: (type: 'click' | 'correct' | 'wrong' | 'levelUp' | 'irrigate', muted: boolean) => void;
 }
 
@@ -28,8 +32,11 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
   challengeQuestion,
   question,
   isMuted = false,
+  pesticides = 0,
   onDefenseSuccess,
   onDefenseFailure,
+  onPestNetTriggered,
+  onUsePesticide,
   playSynthSound,
 }) => {
   const [typedAnswer, setTypedAnswer] = useState('');
@@ -37,10 +44,22 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
   const [showHint, setShowHint] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultState, setResultState] = useState<'idle' | 'success' | 'failure'>('idle');
+  
+  // 防具與道具挽救狀態
+  const [hasNetProtected, setHasNetProtected] = useState<boolean | null>(null);
+  const [netBlockedFeedback, setNetBlockedFeedback] = useState<string | null>(null);
+  const [showPesticidePrompt, setShowPesticidePrompt] = useState(false);
+  const [hasUsedPesticide, setHasUsedPesticide] = useState(false);
+  const [isPesticideActionPending, setIsPesticideActionPending] = useState(false);
 
   const activePestEvent = weeklyPest || pestEvent;
   const activeTargetField = targetField || (fields && activePestEvent ? fields.find(f => f.id === activePestEvent.fieldId) : null) || (fields && fields.length > 0 ? fields[0] : null);
   const activeQuestion = challengeQuestion || question;
+
+  // 初始化或追蹤該農田是否有防蟲網
+  const isNetEquipped = hasNetProtected !== null 
+    ? hasNetProtected 
+    : (activeTargetField?.pestNetEquipped ?? false);
 
   if (!isOpen || !activePestEvent || !activeTargetField || !activeQuestion) return null;
 
@@ -72,7 +91,7 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
 
   const handleDefenseSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isSubmitting || resultState !== 'idle') return;
+    if (isSubmitting || resultState !== 'idle' || showPesticidePrompt) return;
 
     if (activeQuestion.type === 'code_reading' && selectedOption === null) {
       return;
@@ -92,11 +111,59 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
       }, 1600);
     } else {
       if (playSynthSound) playSynthSound('wrong', isMuted);
+
+      // 第一優先：如果該農田裝備有防蟲網，先消耗防蟲網抵擋本次失誤
+      if (isNetEquipped) {
+        setHasNetProtected(false);
+        if (onPestNetTriggered) {
+          onPestNetTriggered(activeTargetField.id);
+        }
+        setNetBlockedFeedback('🛡️ 防蟲網擋住了害蟲！你的作物暫時安全，獲得一次重新防衛機會。');
+        setIsSubmitting(false);
+        setTypedAnswer('');
+        setSelectedOption(null);
+        return;
+      }
+
+      // 第二順位：如果沒有防蟲網（或已被消耗），檢查是否擁有除蟲劑且本場尚未消耗過
+      if (pesticides > 0 && !hasUsedPesticide) {
+        setIsSubmitting(false);
+        setShowPesticidePrompt(true);
+        return;
+      }
+
+      // 無法挽救：防衛失敗
       setResultState('failure');
       setTimeout(() => {
         onDefenseFailure();
       }, 2000);
     }
+  };
+
+  // 確定使用除蟲劑
+  const handleConfirmUsePesticide = () => {
+    if (isPesticideActionPending || pesticides <= 0) return;
+    setIsPesticideActionPending(true);
+
+    if (onUsePesticide) {
+      onUsePesticide();
+    }
+    setHasUsedPesticide(true);
+    setShowPesticidePrompt(false);
+    setNetBlockedFeedback('🧪 已施放除蟲劑！害蟲攻勢被暫時壓制，獲得最後一次防衛作答機會！');
+    setTypedAnswer('');
+    setSelectedOption(null);
+    setIsSubmitting(false);
+    setIsPesticideActionPending(false);
+  };
+
+  // 放棄使用除蟲劑
+  const handleDeclinePesticide = () => {
+    setShowPesticidePrompt(false);
+    setResultState('failure');
+    setTimeout(() => {
+      onDefenseFailure();
+    }, 1800);
   };
 
   return (
@@ -151,11 +218,11 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
             </div>
 
             {/* Victim Crop Card */}
-            <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex items-center gap-3">
+            <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex items-center gap-3 relative">
               <div className="text-4xl p-2 bg-amber-900/30 rounded-2xl border border-amber-500/30 shrink-0">
                 {crop?.icon || '🌱'}
               </div>
-              <div>
+              <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-amber-200">{activeTargetField.name}</span>
                   {rarityMeta && (
@@ -167,9 +234,25 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
                 <p className="text-[11px] text-amber-200/80 mt-1 leading-snug">
                   受害作物：<strong>{crop?.name || activeTargetField.cropName}</strong>（答對題目即可施放代碼驅逐！）
                 </p>
+                {isNetEquipped && (
+                  <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-400/40 text-[10px] text-blue-300 font-bold">
+                    <Shield className="w-3 h-3" />
+                    <span>🛡️ 已裝備防蟲網（可抵擋 1 次失誤）</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Rescue Feedback Message (Net or Pesticide) */}
+          {netBlockedFeedback && (
+            <div className="p-3.5 rounded-2xl bg-blue-950/80 border-2 border-blue-400 text-blue-200 flex items-center gap-3 animate-fadeIn shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+              <Shield className="w-6 h-6 text-blue-400 shrink-0 animate-bounce" />
+              <div className="text-xs sm:text-sm font-bold">
+                {netBlockedFeedback}
+              </div>
+            </div>
+          )}
 
           {/* Question Presentation */}
           <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-700/80 space-y-3 shadow-inner">
@@ -217,7 +300,7 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
                     <button
                       key={idx}
                       type="button"
-                      disabled={isSubmitting || resultState !== 'idle'}
+                      disabled={isSubmitting || resultState !== 'idle' || showPesticidePrompt}
                       onClick={() => {
                         if (playSynthSound) playSynthSound('click', isMuted);
                         setSelectedOption(idx);
@@ -248,7 +331,7 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
                     type="text"
                     value={typedAnswer}
                     onChange={(e) => setTypedAnswer(e.target.value)}
-                    disabled={isSubmitting || resultState !== 'idle'}
+                    disabled={isSubmitting || resultState !== 'idle' || showPesticidePrompt}
                     placeholder="請輸入程式碼或答案..."
                     className="flex-1 px-4 py-3 rounded-xl bg-black border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 shadow-inner"
                     autoFocus
@@ -288,19 +371,60 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
               <span className="text-3xl">💥</span>
               <div>
                 <h5 className="font-black text-sm sm:text-base text-red-300">防衛失敗！害蟲突破了防線...</h5>
-                <p className="text-xs text-red-200/90">作物暫時枯萎，但不用灰心！你可以隨時進行 5 題 C++ 複習進行復育！</p>
+                <p className="text-xs text-red-200/90">作物暫時枯萎，但不用灰心！你可以隨時進行 C++ 複習題進行復育！</p>
               </div>
             </div>
           )}
 
         </div>
 
+        {/* Pesticide Rescue Confirmation Modal Popup */}
+        {showPesticidePrompt && (
+          <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 border-2 border-purple-500 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-[0_0_40px_rgba(168,85,247,0.4)] text-center">
+              <div className="text-5xl animate-bounce">🧪</div>
+              <div className="space-y-1">
+                <span className="text-xs uppercase font-mono font-black text-purple-400 tracking-wider">
+                  PESTICIDE RESCUE OPPORTUNITY
+                </span>
+                <h4 className="text-lg font-black text-white">⚠️ 防衛失敗！是否使用除蟲劑？</h4>
+              </div>
+
+              <div className="p-3 bg-purple-900/30 border border-purple-500/30 rounded-2xl text-xs text-purple-200 leading-relaxed">
+                是否使用 <strong>1 瓶除蟲劑</strong>，獲得一次最後的重新防衛機會？
+                <div className="mt-2 text-sm font-mono font-bold text-amber-300">
+                  目前持有：🧪 除蟲劑 ×{pesticides}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-center pt-2">
+                <button
+                  type="button"
+                  disabled={isPesticideActionPending}
+                  onClick={handleDeclinePesticide}
+                  className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  放棄
+                </button>
+                <button
+                  type="button"
+                  disabled={isPesticideActionPending || pesticides <= 0}
+                  onClick={handleConfirmUsePesticide}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black text-xs shadow-lg shadow-purple-500/30 transition disabled:opacity-50"
+                >
+                  {isPesticideActionPending ? '使用中...' : '🧪 使用除蟲劑'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="p-4 sm:p-5 bg-slate-950/80 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting || resultState !== 'idle'}
+            disabled={isSubmitting || resultState !== 'idle' || showPesticidePrompt}
             className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-all text-xs font-bold"
           >
             稍後再戰
@@ -309,7 +433,7 @@ export const WeeklyPestDefenseModal: React.FC<WeeklyPestDefenseModalProps> = ({
           <button
             type="button"
             onClick={() => handleDefenseSubmit()}
-            disabled={isSubmitting || resultState !== 'idle'}
+            disabled={isSubmitting || resultState !== 'idle' || showPesticidePrompt}
             className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] transition-all active:scale-95 disabled:opacity-50"
           >
             {isSubmitting ? '防衛驗證中...' : '⚔️ 施放除蟲代碼'}
